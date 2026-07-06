@@ -1,0 +1,1072 @@
+{
+  "materials": [],
+  "equipment": [
+    {
+      "tagNumber": "EQ-PMP-101",
+      "name": "Centrifugal Water Pump 1A",
+      "manufacturer": "Karus Pumps Ltd.",
+      "model": "K-CENT-200-XP",
+      "plant": "Water Treatment Plant",
+      "area": "Pumping Station Alpha",
+      "unit": "Unit 3 / Filtration Loop",
+      "description": "Main high-capacity centrifugal pump utilized for continuous supply of circulating process water.",
+      "photoUrl": "https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=300&q=80",
+      "installationDate": "2024-03-12",
+      "status": "operational",
+      "compatibleSpares": [
+        "BRG-6204-2RSH",
+        "LM2596S-5.0"
+      ]
+    },
+    {
+      "tagNumber": "EQ-VLV-502",
+      "name": "Rotary Valve Packager Controller",
+      "manufacturer": "Festo Automation",
+      "model": "VUVS-V20-M32",
+      "plant": "Packaging & Assembly",
+      "area": "Sorting bay B",
+      "unit": "Line 2 / Cartoning Division",
+      "description": "Multi-port high pressure pneumatic rotary distributor for automated parts handling operations.",
+      "photoUrl": "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=300&q=80",
+      "installationDate": "2025-01-05",
+      "status": "operational",
+      "compatibleSpares": [
+        "VLV-SOL-3W2P-24V",
+        "SEN-PROX-IND-M12"
+      ]
+    },
+    {
+      "tagNumber": "EQ-PLC-201",
+      "name": "Control Cabinet Logic PLC Panel",
+      "manufacturer": "Siemens AG",
+      "model": "S7-1200 / CPU 1214C",
+      "plant": "Power Distribution",
+      "area": "Substation 3 Control Room",
+      "unit": "Cabinet Row-D Panel 4",
+      "description": "Main logic automation controller node coordinating motor controls, emergency valves, and proximity arrays.",
+      "photoUrl": "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=300&q=80",
+      "installationDate": "2023-08-20",
+      "status": "operational",
+      "compatibleSpares": [
+        "PLC-S71200-1214C",
+        "STM32F407VGT6",
+        "RES-10K-0603-1%",
+        "CAP-CER-100NF-0603"
+      ]
+    },
+    {
+      "tagNumber": "EQ-CONV-305",
+      "name": "Raw Feed Assembly Belt Conveyor",
+      "manufacturer": "Dorner Conveyors",
+      "model": "D2200 Heavy Duty",
+      "plant": "Raw Materials Yard",
+      "area": "Bulk Intake Grates",
+      "unit": "Line 1 Receiving",
+      "description": "Industrial variable speed belt conveyor for continuous loading of structural profiles and metals.",
+      "photoUrl": "https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?auto=format&fit=crop&w=300&q=80",
+      "installationDate": "2022-11-14",
+      "status": "maintenance",
+      "compatibleSpares": [
+        "BRG-6204-2RSH",
+        "ALU-FLAT-10x100-6061",
+        "SCR-M4-16-HEX-8.8"
+      ]
+    }
+  ],
+  "blacklist": [
+    {
+      "id": "bl-01",
+      "partNumber": "FC-102-MOCK",
+      "serialNumber": "SN-998811",
+      "supplierName": "Global Trade Inc.",
+      "reportedDate": "2026-06-04T13:04:37.787Z",
+      "reason": "counterfeit",
+      "reporterName": "Sarah Jenkins"
+    },
+    {
+      "id": "bl-02",
+      "partNumber": "TEMP-ABB-99",
+      "serialNumber": "SN-ABB-7722",
+      "supplierName": "Al-Fares Supplies",
+      "reportedDate": "2026-06-19T13:04:37.787Z",
+      "reason": "non-compliant",
+      "reporterName": "David Miller"
+    },
+    {
+      "id": "bl-03",
+      "partNumber": "SIEM-XM-12",
+      "serialNumber": "SN-XM-8844",
+      "supplierName": "Apex Trading",
+      "reportedDate": "2026-06-29T13:04:37.787Z",
+      "reason": "failed-verification",
+      "reporterName": "Sarah Jenkins"
+    }
+  ],
+  "feedback": [
+    {
+      "id": "fb-01",
+      "category": "bug",
+      "title": "Datasheet attachment renders slowly on warehouse tablet",
+      "description": "When accessing the materials ledger from the 8-inch Android tablet, PDF drawings are slow to cache offline.",
+      "submittedBy": "David Miller",
+      "userRole": "engineer",
+      "status": "review",
+      "createdAt": "2026-06-30T13:04:37.787Z"
+    },
+    {
+      "id": "fb-02",
+      "category": "feature",
+      "title": "Direct Zebra barcode printing for rack tags",
+      "description": "Need an integrated Zebra WebPrint option to immediately output physical rack label stickers when registering new parts.",
+      "submittedBy": "Sarah Jenkins",
+      "userRole": "admin",
+      "status": "open",
+      "createdAt": "2026-07-02T13:04:37.787Z"
+    },
+    {
+      "id": "fb-03",
+      "category": "suggestion",
+      "title": "Calibration warning alerts for Rosemount flow meters",
+      "description": "The system should warn warehouse supervisors when flow transmitter spares have been in shelf storage for over 18 months without recalibration.",
+      "submittedBy": "Sarah Jenkins",
+      "userRole": "admin",
+      "status": "implemented",
+      "createdAt": "2026-06-26T13:04:37.787Z"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "ed-01",
+      "partNumber": "LM2596S-5.0",
+      "title": "Approval of alternative step-down regulator",
+      "decisionType": "approval",
+      "details": "Approved the LM2596S-5.0 as direct alternate for older LM2596 step-down converters in RTU panel boards.",
+      "approvedBy": "Sarah Jenkins",
+      "approvalDate": "2026-06-22T13:04:37.787Z",
+      "rationale": "Supply chain delays for original parts threatened shutdown of the oil manifold telemetry. Extensive laboratory heat-load tests at 75C showed excellent voltage stability with no failure over 48 hours."
+    },
+    {
+      "id": "ed-02",
+      "partNumber": "3051S-DIFF",
+      "title": "Rejection of non-certified alternate manifold sensor",
+      "decisionType": "rejection",
+      "details": "Rejected Al-Faras alternative transmitter offer due to failure to supply API/ATEX hazardous area certificates.",
+      "approvedBy": "David Miller",
+      "approvalDate": "2026-06-28T13:04:37.787Z",
+      "rationale": "The Instrument Department of ZFOD operates under strict zone 0/1 explosion prevention guidelines. Standard parts without ATEX certificates present unacceptable risk in hydrocarbon processing lines."
+    },
+    {
+      "id": "ed-03",
+      "partNumber": "SKF-6204-2Z",
+      "title": "Maintenance Lesson: Seal integrity on high-temp pumps",
+      "decisionType": "lesson",
+      "details": "Identified premature failure on bearing assemblies due to usage of rubber seals (2RS) instead of steel shields (2Z) on pumps operating above 120C.",
+      "approvedBy": "David Miller",
+      "approvalDate": "2026-07-03T13:04:37.787Z",
+      "rationale": "Lessons learned registered: Steel shielded bearings (2Z) must always be selected for auxiliary pump assemblies in Area 3 hot oil circuits. Avoid standard elastomer seals as they melt and degrade rapidly."
+    }
+  ],
+  "activities": [
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-567-3061 (HF Cable 2102LIT007 Desalter t...)",
+      "id": "log-1783332568354-cxlb",
+      "timestamp": "2026-07-06T10:09:28.354Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-566-540 (Power distribution سيار)",
+      "id": "log-1783332568242-ll66",
+      "timestamp": "2026-07-06T10:09:28.242Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-565-8804 (Cylinder for gasN2 99.9%)",
+      "id": "log-1783332568169-gtk7",
+      "timestamp": "2026-07-06T10:09:28.169Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-564-7507 (Cylinder for gas H2 2%)",
+      "id": "log-1783332568085-ithi",
+      "timestamp": "2026-07-06T10:09:28.085Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-563-690 (Cylinder for gas CH4 2.5%)",
+      "id": "log-1783332568004-6mzt",
+      "timestamp": "2026-07-06T10:09:28.004Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-562-6145 (SIMATIC HMI INDOOR مستخدم   SI...)",
+      "id": "log-1783332567930-8jee",
+      "timestamp": "2026-07-06T10:09:27.930Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-561-8181 (O-RING BOX KIT (A-B-C))",
+      "id": "log-1783332567845-w0g1",
+      "timestamp": "2026-07-06T10:09:27.845Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-560-130 (Differential pressure  (DP) an...)",
+      "id": "log-1783332567750-0r1g",
+      "timestamp": "2026-07-06T10:09:27.750Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: 2070 (TRANSMITTER (PT) WITHOUT MANIF...)",
+      "id": "log-1783332567670-yu8k",
+      "timestamp": "2026-07-06T10:09:27.670Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-558-3937 (FLOAT OF LEVEL GAUGE ,FLOAT SP...)",
+      "id": "log-1783332567591-55m2",
+      "timestamp": "2026-07-06T10:09:27.591Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-557-4385 (Pressure gauge (PG) rang: 0 to...)",
+      "id": "log-1783332567506-ndww",
+      "timestamp": "2026-07-06T10:09:27.506Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-556-8381 (Pressure gauge (PG) rang: 0 to...)",
+      "id": "log-1783332567427-3jj8",
+      "timestamp": "2026-07-06T10:09:27.427Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-555-211 (TEST LAMP  MODEL:TL-2055 جهاز ...)",
+      "id": "log-1783332567347-24dd",
+      "timestamp": "2026-07-06T10:09:27.347Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-554-8511 (SENSITRON GAS DETECTOR HAND HE...)",
+      "id": "log-1783332567272-geov",
+      "timestamp": "2026-07-06T10:09:27.272Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: اجهزة معاير تم استرجعها من شركة بوناتي 26-11-2024 (TCH-B200 (Addressing kit HOCHI...)",
+      "id": "log-1783332567179-xn4a",
+      "timestamp": "2026-07-06T10:09:27.179Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: SPIR014-SP12 (RADAR LEVEL TRANSMITTER (38X38...)",
+      "id": "log-1783332567101-xjcn",
+      "timestamp": "2026-07-06T10:09:27.101Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: SPIR014-SP11 (RADAR LEVEL TRANSMITTER (38X38...)",
+      "id": "log-1783332567024-3tf6",
+      "timestamp": "2026-07-06T10:09:27.024Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: SPIR014-SP09 (GWR LEVEL TRANSMITTER (FMP54-4...)",
+      "id": "log-1783332566945-m8wp",
+      "timestamp": "2026-07-06T10:09:26.945Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: SPIR014-SP010 (GWR LEVEL TRANSMITTER (FMP54-4...)",
+      "id": "log-1783332566864-60a8",
+      "timestamp": "2026-07-06T10:09:26.864Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: SPIR014-SP007 (GWR LEVEL TRANSMITTER (FMP51 C...)",
+      "id": "log-1783332566786-f3zo",
+      "timestamp": "2026-07-06T10:09:26.786Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: SPIR014-SP008 (GWR LEVEL TRANSMITTER (FMP51-C...)",
+      "id": "log-1783332566709-j3q1",
+      "timestamp": "2026-07-06T10:09:26.709Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-546-8146 (REPAIRN KIT FOR ACTUATOR B-3 :...)",
+      "id": "log-1783332566609-siip",
+      "timestamp": "2026-07-06T10:09:26.609Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-545-6817 (REPAIRN KIT FOR ACTUATOR BS-3:...)",
+      "id": "log-1783332566528-nc6r",
+      "timestamp": "2026-07-06T10:09:26.528Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-544-3342 (REPAIRN KIT FOR ACTUATOR BS-2 ...)",
+      "id": "log-1783332566446-5bf9",
+      "timestamp": "2026-07-06T10:09:26.446Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-543-4113 (REPAIRN KIT FOR VALVE (12ea; G...)",
+      "id": "log-1783332566368-pdf5",
+      "timestamp": "2026-07-06T10:09:26.368Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-542-6171 (REPAIRN KIT FOR VALVE (16ea; G...)",
+      "id": "log-1783332566286-arj8",
+      "timestamp": "2026-07-06T10:09:26.286Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-541-5313 (REPAIRN KIT FOR VALVE (16ea; G...)",
+      "id": "log-1783332566207-nh0x",
+      "timestamp": "2026-07-06T10:09:26.207Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-540-1082 (REPAIRN KIT FOR VALVE (2ea; GA...)",
+      "id": "log-1783332566123-d10u",
+      "timestamp": "2026-07-06T10:09:26.123Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-539-6152 (20S A2 M20 NICKEL PLATED BRASS...)",
+      "id": "log-1783332566035-5kj4",
+      "timestamp": "2026-07-06T10:09:26.035Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-538-3194 (Nipple 1\\2\")",
+      "id": "log-1783332565961-jnw6",
+      "timestamp": "2026-07-06T10:09:25.961Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-537-5913 (Valve 1\\2\")",
+      "id": "log-1783332565886-26fs",
+      "timestamp": "2026-07-06T10:09:25.886Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-536-3236 (Parker manifold (gauge valve 1...)",
+      "id": "log-1783332565816-9lf3",
+      "timestamp": "2026-07-06T10:09:25.816Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-535-2873 (Socket 1/2 Male connector)",
+      "id": "log-1783332565740-k13r",
+      "timestamp": "2026-07-06T10:09:25.740Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-534-325 (Control panel dimensions (50*1...)",
+      "id": "log-1783332565663-ulmd",
+      "timestamp": "2026-07-06T10:09:25.663Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-533-9749 (AIR Filter Regulator (CKD))",
+      "id": "log-1783332565590-ftu2",
+      "timestamp": "2026-07-06T10:09:25.591Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-532-5632 (Air Supple Regulator (inlet =1...)",
+      "id": "log-1783332565507-yqq6",
+      "timestamp": "2026-07-06T10:09:25.507Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-531-9169 (HARD DISK DRIVE INNODISK 2.5''...)",
+      "id": "log-1783332565430-4y3f",
+      "timestamp": "2026-07-06T10:09:25.430Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: MDR3 (PRESSURE CONTROL SWITCH : MODE...)",
+      "id": "log-1783332565354-1cw6",
+      "timestamp": "2026-07-06T10:09:25.354Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-529-6087 (DUST BOOT FOR THE STEAM  tow p...)",
+      "id": "log-1783332565285-60tf",
+      "timestamp": "2026-07-06T10:09:25.285Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-528-250 (GLAND BUSH SS316)",
+      "id": "log-1783332565207-p5jw",
+      "timestamp": "2026-07-06T10:09:25.207Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-527-725 (GLAND PACKING : PTFE TYPE OF V...)",
+      "id": "log-1783332565130-1xio",
+      "timestamp": "2026-07-06T10:09:25.130Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-526-2896 (MONITOR LCD 23'' ENTERPRISE DI...)",
+      "id": "log-1783332565050-mvv0",
+      "timestamp": "2026-07-06T10:09:25.050Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-525-9547 (RECHARGABLE BATTERY MANUFACTUR...)",
+      "id": "log-1783332564966-x223",
+      "timestamp": "2026-07-06T10:09:24.966Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-524-8004 (DIAPHRAGM OF THE FLOW VALVE MO...)",
+      "id": "log-1783332564884-ywrd",
+      "timestamp": "2026-07-06T10:09:24.885Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: PN:316911 (PEPPERL+FUCHS  KCD2-SCD-Ex1  P...)",
+      "id": "log-1783332564805-bn8p",
+      "timestamp": "2026-07-06T10:09:24.805Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-522-1860 (Pressure gauge (PG)  rang: (40...)",
+      "id": "log-1783332564729-y8dh",
+      "timestamp": "2026-07-06T10:09:24.729Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-521-2411 (SOFT GOOD KIT CONSIST OF:1EA G...)",
+      "id": "log-1783332564655-su3t",
+      "timestamp": "2026-07-06T10:09:24.655Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: SERIAL:Y4ZC00042 (Pressure transmitter (PT) Mode...)",
+      "id": "log-1783332564577-li18",
+      "timestamp": "2026-07-06T10:09:24.577Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-519-611 (Differential pressure transmit...)",
+      "id": "log-1783332564503-lnrd",
+      "timestamp": "2026-07-06T10:09:24.503Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-518-2758 (Thermocouble tybe K length 650...)",
+      "id": "log-1783332564421-5z9q",
+      "timestamp": "2026-07-06T10:09:24.421Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-517-239 (SOLINOID AUTO DRAIN , DRAIN VA...)",
+      "id": "log-1783332564343-3rof",
+      "timestamp": "2026-07-06T10:09:24.343Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: 2051CD2A22A1BS2E1M5D4Q4Q8 (ELECTRONIC CARD FOR LEVEL TRAN...)",
+      "id": "log-1783332564265-2dg0",
+      "timestamp": "2026-07-06T10:09:24.265Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: SB20T-N4-M2P/RGLB (Filter Regulator  Model : SB20...)",
+      "id": "log-1783332564191-gm1a",
+      "timestamp": "2026-07-06T10:09:24.191Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: SB20T-N3-M2P/RGLB (Filter Regulator  Model : SB20...)",
+      "id": "log-1783332564115-1c9b",
+      "timestamp": "2026-07-06T10:09:24.115Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: YT-320 N1 (valve booster relay : model:  ...)",
+      "id": "log-1783332564041-p87j",
+      "timestamp": "2026-07-06T10:09:24.041Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-512-6353 (Actuator Diaphragm type of act...)",
+      "id": "log-1783332563965-zl72",
+      "timestamp": "2026-07-06T10:09:23.965Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: SERIAL:15220790916B (Ethernet switch SERIAL:1522079...)",
+      "id": "log-1783332563894-zfeb",
+      "timestamp": "2026-07-06T10:09:23.894Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: SERIAL:15220810915Y (Ethernet switch SERIAL:1522081...)",
+      "id": "log-1783332563811-2nll",
+      "timestamp": "2026-07-06T10:09:23.811Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: SERIAL:15220808915Y (Ethernet switch SERIAL:1522080...)",
+      "id": "log-1783332563726-dz42",
+      "timestamp": "2026-07-06T10:09:23.726Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: SERIAL:15080048916B (Ethernet switch SERIAL:1508004...)",
+      "id": "log-1783332563650-i1jm",
+      "timestamp": "2026-07-06T10:09:23.650Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: SERIAL:15220785916B (Ethernet switch SERIAL:1522078...)",
+      "id": "log-1783332563573-hlp4",
+      "timestamp": "2026-07-06T10:09:23.573Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: SERIAL:15220783915Y (Ethernet switch SERIAL:1522078...)",
+      "id": "log-1783332563498-23e8",
+      "timestamp": "2026-07-06T10:09:23.498Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: SERIAL:15220807916B (Ethernet switch SERIAL:1522080...)",
+      "id": "log-1783332563417-5b7y",
+      "timestamp": "2026-07-06T10:09:23.417Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: SERIAL:15220806916B (Ethernet switch SERIAL:1522080...)",
+      "id": "log-1783332563320-ldze",
+      "timestamp": "2026-07-06T10:09:23.320Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: SERIAL:15220789915Y (Ethernet switch SERIAL:1522078...)",
+      "id": "log-1783332563206-7m1m",
+      "timestamp": "2026-07-06T10:09:23.206Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: SERIAL:15220787915Y (Ethernet switch SERIAL:1522078...)",
+      "id": "log-1783332563107-wuc4",
+      "timestamp": "2026-07-06T10:09:23.107Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: SERIAL:15220805915Y (Ethernet switch SERIAL:1522080...)",
+      "id": "log-1783332563021-zgjg",
+      "timestamp": "2026-07-06T10:09:23.021Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: SERIAL:15220788915Y (Ethernet switch SERIAL:1522078...)",
+      "id": "log-1783332562954-t6td",
+      "timestamp": "2026-07-06T10:09:22.954Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: SERIAL:15080034916B (Ethernet switch SERIAL:1508003...)",
+      "id": "log-1783332562876-h6jz",
+      "timestamp": "2026-07-06T10:09:22.876Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-498-5381 (Pressure GAUGE (PG) LIQUID RAN...)",
+      "id": "log-1783332562801-zs5i",
+      "timestamp": "2026-07-06T10:09:22.801Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-497-6616 (FAN 60*60*25MM,12V DC M/C :HAR...)",
+      "id": "log-1783332562725-8zr5",
+      "timestamp": "2026-07-06T10:09:22.725Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-496-6302 (HP 300 GB 2.5-INCH SFF SAS 6 G...)",
+      "id": "log-1783332562652-3t6f",
+      "timestamp": "2026-07-06T10:09:22.652Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-495-1692 (HP 600 GB 2.5-INCH SFF SAS 6 G...)",
+      "id": "log-1783332562576-zmi1",
+      "timestamp": "2026-07-06T10:09:22.576Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-494-490 (Liquid wetted process system)",
+      "id": "log-1783332562488-zvdh",
+      "timestamp": "2026-07-06T10:09:22.488Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-493-3193 (Weld wetted gas xdcr (تابع الى...)",
+      "id": "log-1783332562414-34ew",
+      "timestamp": "2026-07-06T10:09:22.414Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-492-2658 (TRANSDUCER CABLES MANUFACTURER...)",
+      "id": "log-1783332562340-gr13",
+      "timestamp": "2026-07-06T10:09:22.340Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-491-6254 (TRANSDUCER MANUFACTURER :BAKER...)",
+      "id": "log-1783332562261-x9bj",
+      "timestamp": "2026-07-06T10:09:22.261Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-490-7740 (ULTRASONIC FLOW TRANSMITTER MA...)",
+      "id": "log-1783332562189-ocdz",
+      "timestamp": "2026-07-06T10:09:22.189Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-489-2271 (POWER SUPPLY(5A) QUINT-PS/100-...)",
+      "id": "log-1783332562113-8pc9",
+      "timestamp": "2026-07-06T10:09:22.113Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-488-9959 (Bently Nevada Asset condition ...)",
+      "id": "log-1783332562035-6kg1",
+      "timestamp": "2026-07-06T10:09:22.035Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-487-8659 (2WAY VALVE MANIFOLD)",
+      "id": "log-1783332561961-uf76",
+      "timestamp": "2026-07-06T10:09:21.961Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-486-3863 (Air Regulator auto drain)",
+      "id": "log-1783332561871-clnn",
+      "timestamp": "2026-07-06T10:09:21.871Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-485-616 (Resistance Isolated card Bassi...)",
+      "id": "log-1783332561797-r2n0",
+      "timestamp": "2026-07-06T10:09:21.797Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-484-5517 (MAUS MIT)",
+      "id": "log-1783332561718-2udx",
+      "timestamp": "2026-07-06T10:09:21.718Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-483-3875 (cylinder Regulator with 3-way ...)",
+      "id": "log-1783332561646-wnl7",
+      "timestamp": "2026-07-06T10:09:21.646Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-482-9368 (Actuator Valve Limit switch  M...)",
+      "id": "log-1783332561576-baw1",
+      "timestamp": "2026-07-06T10:09:21.576Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-481-4520 (single-pair analog/digital sig...)",
+      "id": "log-1783332561512-pb8x",
+      "timestamp": "2026-07-06T10:09:21.512Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: 46269 (Bently Nevada Asset condition ...)",
+      "id": "log-1783332561445-syiy",
+      "timestamp": "2026-07-06T10:09:21.445Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: 1614000154-1614000160-1614000166 (YOKOGAWA 5150X-01)",
+      "id": "log-1783332561379-cs1m",
+      "timestamp": "2026-07-06T10:09:21.379Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: 51623 (HONEYWELL nalytics LTD (CALIBR...)",
+      "id": "log-1783332561296-5s1b",
+      "timestamp": "2026-07-06T10:09:21.296Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: 3938365 (FLUKE 718 (FLUKE CORPORATION))",
+      "id": "log-1783332561228-s1w8",
+      "timestamp": "2026-07-06T10:09:21.228Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: ZB5050 (AIR COMPRESSOR 50 L (ضاغطة هوا...)",
+      "id": "log-1783332561152-codv",
+      "timestamp": "2026-07-06T10:09:21.152Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: TEMP-PN-475-831 (FLUKE 59 MAX IR THERMOMETER)",
+      "id": "log-1783332561078-rwdf",
+      "timestamp": "2026-07-06T10:09:21.078Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: 45190545 WS (FLUKE 107 (SN:45190545 WS))",
+      "id": "log-1783332561006-fd4r",
+      "timestamp": "2026-07-06T10:09:21.006Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: PN:71943-04H (COMPLETE DIFFERENTIAL/FLOW LIM...)",
+      "id": "log-1783332560931-qm9h",
+      "timestamp": "2026-07-06T10:09:20.931Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: PN:100-01-203H (COMPLETE PILOT CONTROL VALVE -...)",
+      "id": "log-1783332560861-plj7",
+      "timestamp": "2026-07-06T10:09:20.861Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: PN:10001203H (STUD/NUT KIT -PART NUMBER:2117...)",
+      "id": "log-1783332560787-mchs",
+      "timestamp": "2026-07-06T10:09:20.787Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: PN:21176624K (REBUILD ASSEMBLY KIT-PART NUMB...)",
+      "id": "log-1783332560692-x25n",
+      "timestamp": "2026-07-06T10:09:20.692Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: PN:21176610F (RUBBER KIT-PART NUMBER:2117661...)",
+      "id": "log-1783332560620-tupj",
+      "timestamp": "2026-07-06T10:09:20.620Z"
+    },
+    {
+      "userId": "usr-01",
+      "userName": "Sarah Jenkins",
+      "userRole": "admin",
+      "action": "create",
+      "details": "Added new material: PN:9817902B (RUBBER-PART NUMBER:9817902B DA...)",
+      "id": "log-1783332560547-2twb",
+      "timestamp": "2026-07-06T10:09:20.547Z"
+    }
+  ],
+  "initialized": true
+}

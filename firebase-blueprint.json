@@ -1,0 +1,122 @@
+{
+  "entities": {
+    "Material": {
+      "title": "Material",
+      "description": "An instrument spare parts record in the EMIS digital ledger",
+      "type": "object",
+      "properties": {
+        "partNumber": { "type": "string", "description": "Unique spare part number" },
+        "description": { "type": "string", "description": "Technical descriptive specification" },
+        "manufacturer": { "type": "string", "description": "Original Equipment Manufacturer" },
+        "model": { "type": "string", "description": "Manufacturer model designation" },
+        "quantity": { "type": "integer", "description": "Current available quantity" },
+        "unit": { "type": "string", "description": "Unit of measurement (e.g. PCS, METERS)" },
+        "store": { "type": "string", "description": "Warehouse location identifier" },
+        "rack": { "type": "string", "description": "Storage rack number" },
+        "shelf": { "type": "string", "description": "Storage shelf position" },
+        "minStockLevel": { "type": "integer", "description": "Minimum threshold level for low stock alerting" }
+      },
+      "required": ["partNumber", "description", "manufacturer", "model", "quantity", "unit", "store"]
+    },
+    "Equipment": {
+      "title": "Equipment",
+      "description": "Critical process loops and production units mapped to spares",
+      "type": "object",
+      "properties": {
+        "tagNumber": { "type": "string", "description": "Process loop plant tag number (e.g., 10-PV-101)" },
+        "name": { "type": "string", "description": "Standard engineering unit name" },
+        "manufacturer": { "type": "string", "description": "OEM of the plant instrument" },
+        "model": { "type": "string", "description": "Plant instrument physical model" },
+        "plant": { "type": "string", "description": "Physical plant facility partition" },
+        "area": { "type": "string", "description": "Specific process area" },
+        "status": { "type": "string", "description": "Operational status" }
+      },
+      "required": ["tagNumber", "name", "manufacturer", "model", "plant", "status"]
+    },
+    "BlacklistItem": {
+      "title": "BlacklistItem",
+      "description": "Blacklisted counterfeit, high-failure, or unverified serial-numbers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "partNumber": { "type": "string" },
+        "serialNumber": { "type": "string" },
+        "supplierName": { "type": "string" },
+        "reportedDate": { "type": "string" },
+        "reason": { "type": "string" },
+        "reporterName": { "type": "string" }
+      },
+      "required": ["id", "partNumber", "serialNumber", "reason"]
+    },
+    "FeedbackItem": {
+      "title": "FeedbackItem",
+      "description": "User bug report, interface suggestion, or feature request",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "category": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "submittedBy": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "category", "title", "description", "submittedBy", "status"]
+    },
+    "EngineeringDecision": {
+      "title": "EngineeringDecision",
+      "description": "Lessons learned and engineering approvals register",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "partNumber": { "type": "string" },
+        "title": { "type": "string" },
+        "decisionType": { "type": "string" },
+        "details": { "type": "string" },
+        "approvedBy": { "type": "string" },
+        "approvalDate": { "type": "string" }
+      },
+      "required": ["id", "partNumber", "title", "decisionType", "details", "approvedBy", "approvalDate"]
+    },
+    "ActivityLog": {
+      "title": "ActivityLog",
+      "description": "Standard logging registry auditing operations",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "userId", "userName", "action", "details", "timestamp"]
+    }
+  },
+  "firestore": {
+    "materials": {
+      "schema": "Material",
+      "description": "The materials digital spares ledger collection"
+    },
+    "equipment": {
+      "schema": "Equipment",
+      "description": "The plant instrumentation loop list"
+    },
+    "blacklist": {
+      "schema": "BlacklistItem",
+      "description": "Counterfeit and non-compliant serial registry"
+    },
+    "feedback": {
+      "schema": "FeedbackItem",
+      "description": "User experience feedback log"
+    },
+    "decisions": {
+      "schema": "EngineeringDecision",
+      "description": "Lessons learned and design change documents"
+    },
+    "activities": {
+      "schema": "ActivityLog",
+      "description": "System security connection and modifications audit log"
+    }
+  }
+}

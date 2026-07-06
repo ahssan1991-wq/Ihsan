@@ -1,0 +1,63 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Custom palette matching a modern, clean industrial gray and blue */
+  --color-brand-50: #f0f7ff;
+  --color-brand-100: #e0effe;
+  --color-brand-200: #bae0fd;
+  --color-brand-500: #0ea5e9;
+  --color-brand-600: #0284c7;
+  --color-brand-700: #0369a1;
+  --color-brand-800: #075985;
+  --color-brand-900: #0c4a6e;
+  
+  --color-industrial-50: #f8fafc;
+  --color-industrial-100: #f1f5f9;
+  --color-industrial-200: #e2e8f0;
+  --color-industrial-300: #cbd5e1;
+  --color-industrial-400: #94a3b8;
+  --color-industrial-500: #64748b;
+  --color-industrial-600: #475569;
+  --color-industrial-700: #334155;
+  --color-industrial-800: #1e293b;
+  --color-industrial-900: #0f172a;
+}
+
+/* Base resets & custom scrollbar styles for industrial layout */
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-industrial-50);
+  color: var(--color-industrial-900);
+}
+
+.heading-display {
+  font-family: var(--font-display);
+}
+
+.code-mono {
+  font-family: var(--font-mono);
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-industrial-100);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-industrial-300);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-industrial-400);
+}

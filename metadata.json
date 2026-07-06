@@ -1,0 +1,10 @@
+{
+  "name": "Remix: Engineering Material Management System",
+  "description": "Enterprise Engineering Inventory Management System (EMIS) for the Instrument Department at ZFOD. Built with real-time advanced search, official Excel imports, and AI visual scanner.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

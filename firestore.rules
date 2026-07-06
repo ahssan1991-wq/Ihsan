@@ -1,0 +1,132 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- REUSABLE UTILITIES ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_%\\-\\.\\+\\(\\)]+$');
+    }
+
+    // Helper functions for entity validation
+    function isValidMaterial(data) {
+      return data.partNumber is string && data.partNumber.size() <= 128 &&
+             data.description is string && data.description.size() <= 1024 &&
+             data.manufacturer is string && data.manufacturer.size() <= 256 &&
+             data.model is string && data.model.size() <= 256 &&
+             data.quantity is int && data.quantity >= 0 &&
+             data.unit is string && data.unit.size() <= 32 &&
+             data.store is string && data.store.size() <= 128;
+    }
+
+    function isValidEquipment(data) {
+      return data.tagNumber is string && data.tagNumber.size() <= 128 &&
+             data.name is string && data.name.size() <= 256 &&
+             data.manufacturer is string && data.manufacturer.size() <= 256 &&
+             data.model is string && data.model.size() <= 256 &&
+             data.plant is string && data.plant.size() <= 128 &&
+             data.status is string && data.status.size() <= 64;
+    }
+
+    function isValidBlacklistItem(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.partNumber is string && data.partNumber.size() <= 128 &&
+             data.serialNumber is string && data.serialNumber.size() <= 128 &&
+             data.reason is string && data.reason.size() <= 1024;
+    }
+
+    function isValidFeedbackItem(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.category is string && data.category.size() <= 64 &&
+             data.title is string && data.title.size() <= 256 &&
+             data.description is string && data.description.size() <= 2048 &&
+             data.submittedBy is string && data.submittedBy.size() <= 256 &&
+             data.status is string && data.status.size() <= 64;
+    }
+
+    function isValidDecision(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.partNumber is string && data.partNumber.size() <= 128 &&
+             data.title is string && data.title.size() <= 256 &&
+             data.decisionType is string && data.decisionType.size() <= 64 &&
+             data.details is string && data.details.size() <= 4096 &&
+             data.approvedBy is string && data.approvedBy.size() <= 256 &&
+             data.approvalDate is string && data.approvalDate.size() <= 64;
+    }
+
+    function isValidActivityLog(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.userName is string && data.userName.size() <= 256 &&
+             data.action is string && data.action.size() <= 128 &&
+             data.details is string && data.details.size() <= 4096 &&
+             data.timestamp is string && data.timestamp.size() <= 64;
+    }
+
+    // --- COLLECTION RULE GROUPS ---
+
+    // Materials Ledger Collection
+    match /materials/{materialId} {
+      allow get: if isSignedIn() && isValidId(materialId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(materialId) && isValidMaterial(request.resource.data);
+      allow update: if isSignedIn() && isValidId(materialId) && isValidMaterial(request.resource.data) &&
+                      request.resource.data.partNumber == resource.data.partNumber;
+      allow delete: if isSignedIn() && isValidId(materialId);
+    }
+
+    // Equipment Loops Collection
+    match /equipment/{equipId} {
+      allow get: if isSignedIn() && isValidId(equipId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(equipId) && isValidEquipment(request.resource.data);
+      allow update: if isSignedIn() && isValidId(equipId) && isValidEquipment(request.resource.data) &&
+                      request.resource.data.tagNumber == resource.data.tagNumber;
+      allow delete: if isSignedIn() && isValidId(equipId);
+    }
+
+    // Blacklist Serial Numbers Collection
+    match /blacklist/{itemId} {
+      allow get: if isSignedIn() && isValidId(itemId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(itemId) && isValidBlacklistItem(request.resource.data);
+      allow update: if isSignedIn() && isValidId(itemId) && isValidBlacklistItem(request.resource.data);
+      allow delete: if isSignedIn() && isValidId(itemId);
+    }
+
+    // User Feedback Collection
+    match /feedback/{itemId} {
+      allow get: if isSignedIn() && isValidId(itemId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(itemId) && isValidFeedbackItem(request.resource.data);
+      allow update: if isSignedIn() && isValidId(itemId) && isValidFeedbackItem(request.resource.data);
+      allow delete: if isSignedIn() && isValidId(itemId);
+    }
+
+    // Engineering Decisions Collection
+    match /decisions/{decisionId} {
+      allow get: if isSignedIn() && isValidId(decisionId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(decisionId) && isValidDecision(request.resource.data);
+      allow update: if isSignedIn() && isValidId(decisionId) && isValidDecision(request.resource.data);
+      allow delete: if isSignedIn() && isValidId(decisionId);
+    }
+
+    // Activities Log Collection
+    match /activities/{activityId} {
+      allow get: if isSignedIn() && isValidId(activityId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(activityId) && isValidActivityLog(request.resource.data);
+      allow update: if isSignedIn() && isValidId(activityId) && isValidActivityLog(request.resource.data);
+      allow delete: if isSignedIn() && isValidId(activityId);
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "appId": "com.emis.inspection",
+  "appName": "EMIS Inspection System",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true
+  }
+}
