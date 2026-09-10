@@ -30,8 +30,8 @@ import { Equipment, Material, User, UserRole } from '../types';
 import { dbService } from '../services/dbService';
 
 interface EquipmentViewProps {
-  equipment: Equipment[];
-  materials: Material[];
+  equipment?: Equipment[];
+  materials?: Material[];
   currentUser: User;
   onUpdateEquipment: () => void;
   onNavigateToTab: (tabId: string, query: string) => void;
@@ -39,13 +39,15 @@ interface EquipmentViewProps {
 }
 
 export default function EquipmentView({ 
-  equipment, 
-  materials, 
+  equipment: rawEquipment = [], 
+  materials: rawMaterials = [], 
   currentUser, 
   onUpdateEquipment, 
   onNavigateToTab,
   triggerToast 
 }: EquipmentViewProps) {
+  const equipment = Array.isArray(rawEquipment) && rawEquipment.length > 0 ? rawEquipment : (dbService.getEquipment() || []);
+  const materials = Array.isArray(rawMaterials) && rawMaterials.length > 0 ? rawMaterials : (dbService.getMaterials() || []);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('All');
   const [filterPlant, setFilterPlant] = useState<string>('All');

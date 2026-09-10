@@ -128,5 +128,33 @@ service cloud.firestore {
       allow update: if isSignedIn() && isValidId(activityId) && isValidActivityLog(request.resource.data);
       allow delete: if isSignedIn() && isValidId(activityId);
     }
+
+    // Material Inspections Collection
+    match /inspections/{inspectionId} {
+      allow get: if isSignedIn() && isValidId(inspectionId);
+      allow list: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && isValidId(inspectionId);
+    }
+
+    // Stock Movements Collection
+    match /stock_movements/{movementId} {
+      allow get: if isSignedIn() && isValidId(movementId);
+      allow list: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && isValidId(movementId);
+    }
+
+    // External Company Files Index Collection
+    match /externalFiles/{fileId} {
+      allow get: if isSignedIn() && isValidId(fileId);
+      allow list: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && isValidId(fileId);
+    }
+
+    // External Company Materials Collection
+    match /externalMaterials/{matId} {
+      allow get: if isSignedIn() && isValidId(matId);
+      allow list: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && isValidId(matId);
+    }
   }
 }

@@ -1,101 +1,183 @@
-# EMIS Inspection System: Android Native Compilation Guide
+# EMIS Engineering Material & Inspection System: Android Native APK Packaging Guide
 
-This guide details how to build and deploy the **EMIS Inspection System** as a native **Android APK (Supporting Android 10 and above)**. 
-
-Since the development workspace operates in a cloud container running Node.js, compiling a native `.apk` binary requires an environment with the Android SDK and Gradle (such as Android Studio on your local machine, or a cloud CI/CD pipeline). This codebase is pre-integrated with **CapacitorJS**, the industry standard for wrapping high-performance React/Vite single-page applications into high-efficiency native Android apps.
+This guide details all configuration adjustments and steps required to package the **EMIS Inspection System** into a production-grade native **Android APK** (supporting Android 10, 11, 12, 13, 14+).
 
 ---
 
-## 🚀 Step-by-Step Native APK Build Pipeline
+## 📋 1. Project Configuration Overview
 
-Follow these steps on your local development machine to generate the APK:
+The application is pre-configured with **CapacitorJS 8**, bridging the React/Vite front-end to Android's native WebView environment with direct hardware capabilities (Camera, Local Storage, Biometrics/Touch).
 
-### 1. Prerequisite Installations
-Ensure your local machine has the following tools installed:
-- **Node.js** (v18 or v20)
-- **Java Development Kit (JDK 17)** (Required for Gradle & Android 10+)
-- **Android Studio** (Includes Android SDK, SDK Build-Tools, and Emulator)
+### `capacitor.config.json`
+```json
+{
+  "appId": "com.emis.inspection",
+  "appName": "EMIS Inspection System",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "backgroundColor": "#0b0f19"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "backgroundColor": "#0b0f19",
+      "showSpinner": false
+    }
+  }
+}
+```
 
-### 2. Export & Clone Codebase
-Download this project as a ZIP or push it to a GitHub repository from the top-right settings menu in AI Studio. Extract it locally and open your terminal in the root directory.
+---
 
-### 3. Install Dependencies
-Run the package installation:
+## 🛠️ 2. Step-by-Step APK Packaging Pipeline
+
+### Step 1: Export Codebase to Your Local Machine
+From AI Studio, click **Settings (⚙️)** > **Export to ZIP** (or push to GitHub), extract to a folder (e.g., `C:\EMIS-Inspection`).
+
+### Step 2: Install Local Prerequisites
+1. **Node.js** (v18 or v20 LTS): [nodejs.org](https://nodejs.org/)
+2. **Android Studio** (includes Android SDK, Platform Tools, and JDK 17): [developer.android.com/studio](https://developer.android.com/studio)
+
+### Step 3: Build Web Assets & Initialize Android Container
+Open your terminal in the project root:
+
 ```bash
+# 1. Install dependencies
 npm install
-```
 
-### 4. Build the Web Assets
-Generate the production-ready optimized SPA bundle:
-```bash
+# 2. Build the optimized web bundle
 npm run build
-```
-This produces the compiled assets inside the `dist/` directory.
 
-### 5. Initialize & Add the Android Platform
-Run the Capacitor command to initialize the native Android project structures:
-```bash
-# Add the native Android container files (runs once)
+# 3. Initialize native Android platform (runs once)
 npx cap add android
-```
-This creates a native Gradle-based Android project in the `/android` folder.
 
-### 6. Synchronize Web Assets with Android Project
-Whenever you change your React components, sync the compiled files into the native Android shell:
-```bash
+# 4. Synchronize web assets into Android shell
 npm run cap:sync
 ```
 
-### 7. Compile the Android APK (via Command Line or Android Studio)
+---
 
-#### Option A: Compile via Android Studio (Recommended)
-1. Open Android Studio.
-2. Select **Open an Existing Project** and choose the `android` folder in your project root directory.
-3. Wait for Gradle to sync.
-4. Go to the top menu: **Build > Build Bundle(s) / APK(s) > Build APK(s)**.
-5. Android Studio will compile the app and output the file at:
-   `android/app/build/outputs/apk/debug/app-debug.apk`
+## 🔐 3. Android Manifest Configuration (`AndroidManifest.xml`)
 
-#### Option B: Compile via Command Line (CLI)
-You can compile the debug APK directly from your terminal using Gradle wrapper:
+Open `android/app/src/main/AndroidManifest.xml` and ensure the following permissions and hardware features are declared inside the `<manifest>` block:
+
+```xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.emis.inspection">
+
+    <!-- Network & Sync Permissions -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Camera Permissions for Nameplate OCR & Document Scanning -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+
+    <!-- Storage & File Upload Permissions -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme"
+        android:usesCleartextTraffic="true">
+
+        <activity
+            android:name=".MainActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:exported="true"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
+```
+
+---
+
+## 🎨 4. Icon Sets and Splash Screens
+
+To generate native Android mipmap icon sets (`mipmap-hdpi`, `mipmap-mdpi`, `mipmap-xhdpi`, `mipmap-xxhdpi`, `mipmap-xxxhdpi`):
+
+### Option A: Using Android Studio Asset Studio (Visual & Simple)
+1. Open the `android` folder in **Android Studio**.
+2. Right-click on the `app` folder in the project pane > **New > Image Asset**.
+3. Under **Asset Type**, choose **Launcher Icons (Adaptive and Legacy)**.
+4. Set **Source Asset > Path** to the provided `/public/icon-512.svg`.
+5. Adjust background color to `#0B0F19` and click **Finish**.
+
+### Option B: Automatic Generation via CLI
+```bash
+npx @capacitor/assets generate --android
+```
+
+---
+
+## 💾 5. Offline Storage & Persistence Architecture
+
+The app has built-in offline resilience:
+
+1. **Storage Tier**: All material ledgers, logs, inspections, and user configurations are persisted using the browser's persistent `localStorage` and `IndexedDB` storage engines.
+2. **Offline OCR & AI Fallback**: If an on-site engineer lacks cellular connection, the app uses an embedded heuristic parser to extract nameplate data without network latency.
+3. **Queue & Auto-Sync**: When internet access is restored, the `dbService` triggers a synchronization loop with the Firestore and Cloud Run backend (`syncToBackend`).
+
+---
+
+## 📦 6. Compiling the Final `.apk` Binary
+
+### Debug APK (For direct field device installation):
 ```bash
 cd android
 ./gradlew assembleDebug
 ```
-The compiled APK will be available in:
-`app/build/outputs/apk/debug/app-debug.apk`
+Output:
+`android/app/build/outputs/apk/debug/app-debug.apk`
+
+### Signed Release APK (For production deployment):
+1. In Android Studio: **Build > Generate Signed Bundle / APK**.
+2. Select **APK**, create or choose your keystore, and select **release**.
+3. The resulting `.apk` is ready for direct installation on tablets and rugged field devices.
 
 ---
 
-## 🛠️ Mobile Native Configuration (Android 10+)
+## ☁️ 7. Google Drive Vault & Google Sign-In in Android APK
 
-We have pre-configured key parameters in `capacitor.config.json` and the code to ensure compatibility with Android 10+ devices used in oil fields and remote warehouses:
+### Why Web Popup (`signInWithPopup`) behaves differently in an APK:
+Google applies a strict security policy (**Google Secure Browsers Policy / `disallowed_useragent`**) that blocks OAuth web popups inside embedded Android WebViews. 
 
-### 1. Camera Permissions (Barcode, QR, & Nameplate OCR)
-To ensure the camera opens natively for scanning documents, barcodes, and nameplates, Capacitor requires permissions declared in the Android Manifest.
+### Solutions Available for Android:
 
-When you open the `android/app/src/main/AndroidManifest.xml` file, verify that the following permissions are inside the `<manifest>` tag:
-```xml
-<!-- Permissions required for Field Camera & Uploads -->
-<uses-permission android:name="android.permission.CAMERA" />
-<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28"/>
-<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-```
+#### 1. Instant Field Vault (No Google Cloud setup required - Recommended for Field Testing):
+Click **"تشغيل الحاوية الميدانية / Field Storage Vault"** inside the app. This creates an isolated local storage vault directly on the device where you can upload, categorize, inspect, and export technical datasheets and inspection attachments offline.
 
-### 2. Offline Mode & Local Persistence
-- **Local Storage**: The system uses a highly resilient IndexedDB local state engine (configured inside `/src/services/dbService.ts`) to cache materials ledger and activity logs.
-- **Offline Writes**: When an inspector registers a material, adds comments, or registers a verification, the changes are stored locally first.
-- **Background Auto-Sync**: The background service automatically checks network connections and performs continuous retries (`syncToBackend`) to update the cloud Firestore database once a cellular or Wi-Fi signal is detected.
+#### 2. Native Google Sign-In via Google Cloud Console (For Live Google Drive in APK):
+To enable direct Google Sign-In inside a compiled Android APK:
+1. Go to **Google Cloud Console > Credentials**.
+2. Create an **OAuth 2.0 Client ID** with Application type **Android**:
+   - **Package Name**: `com.emis.inspection`
+   - **SHA-1 Certificate Fingerprint**: Run `./gradlew signingReport` in your `android/` directory and copy the SHA-1 hash.
+3. Install the Capacitor Google Auth plugin:
+   ```bash
+   npm install @codetrix-studio/capacitor-google-auth
+   npx cap sync android
+   ```
+4. Or alternatively, open EMIS via the mobile Chrome browser as a PWA where Web OAuth works natively.
 
-### 3. Cleartext Traffic (For Development Sync)
-For testing the app against a local Express server on your Wi-Fi network, cleartext traffic is enabled in `capacitor.config.json` with:
-`"cleartext": true`
-This allows standard HTTP synchronization during internal development cycles.
-
----
-
-## 📱 Features Preloaded for Mobile Inspection
-1. **Nameplate OCR Reader**: Integrates with the backend server via `/api/gemini/scan-nameplate` to read machine specification plates directly from camera snapshots.
-2. **Interactive Signature Pad**: Allows on-site field engineers to draw signatures on screen using capacitive touch or styluses, saving signatures directly into the inspection ledger.
-3. **Responsive Interface**: Re-engineered with fluid responsive containers (`max-w-7xl mx-auto`), flexible grids, and large tap areas (44px target sizes) to ease operational entry for users wearing protective industrial gloves.

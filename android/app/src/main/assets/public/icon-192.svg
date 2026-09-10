@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <defs>
+    <linearGradient id="grad192" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e40af" />
+      <stop offset="50%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#3b82f6" />
+    </linearGradient>
+  </defs>
+  <rect width="192" height="192" rx="42" fill="#0b0f19"/>
+  <rect x="8" y="8" width="176" height="176" rx="34" fill="none" stroke="#1e293b" stroke-width="2.5"/>
+  <circle cx="96" cy="96" r="56" fill="url(#grad192)"/>
+  <path d="M96 60 L132 80 L96 100 L60 80 Z" fill="#ffffff" />
+  <path d="M60 95 L96 115 L132 95" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M60 110 L96 130 L132 110" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
+  <text x="96" y="162" text-anchor="middle" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="800" letter-spacing="1.5">EMIS</text>
+</svg>

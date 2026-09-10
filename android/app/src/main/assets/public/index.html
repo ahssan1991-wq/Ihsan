@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b0f19" />
+    <link rel="icon" type="image/svg+xml" href="/icon-512.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <title>EMIS – Engineering Material Intelligence System</title>
+    <meta name="description" content="EMIS – Engineering Material Intelligence System (Port 14 Operational Excellence) with Command Center, Action Center, Data Quality Engine, Global Instant Search, Unified Design System, and Multilingual Material Ledger." />
+    <meta property="og:title" content="EMIS – Engineering Material Intelligence System" />
+    <meta property="og:description" content="EMIS – Engineering Material Intelligence System (Port 14 Operational Excellence) with Command Center, Action Center, Data Quality Engine, Global Instant Search, Unified Design System, and Multilingual Material Ledger." />
+    <script>
+      // Automatically purge legacy service workers and stale cached script chunks
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for (var i = 0; i < registrations.length; i++) {
+            registrations[i].unregister();
+          }
+        });
+      }
+      if ('caches' in window) {
+        caches.keys().then(function(names) {
+          for (var i = 0; i < names.length; i++) {
+            caches.delete(names[i]);
+          }
+        });
+      }
+
+      // Suppress Vite HMR WebSocket notification overlays in sandboxed preview
+      window.addEventListener('unhandledrejection', function(event) {
+        var str = '';
+        try {
+          str = String(event.reason && (event.reason.message || event.reason) || '');
+        } catch(e) {}
+        if (str.indexOf('WebSocket') !== -1 || str.indexOf('websocket') !== -1 || str.indexOf('vite') !== -1) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
+      }, true);
+
+      window.addEventListener('error', function(event) {
+        var str = '';
+        try {
+          str = String(event.message || event.error && event.error.message || '');
+        } catch(e) {}
+        if (str.indexOf('WebSocket') !== -1 || str.indexOf('websocket') !== -1 || str.indexOf('vite') !== -1) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
+      }, true);
+    </script>
+    <script type="module" crossorigin src="/assets/index-Dggp8w2l.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-DrcmOZB9.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
+

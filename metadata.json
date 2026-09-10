@@ -1,6 +1,6 @@
 {
-  "name": "Remix: Engineering Material Management System",
-  "description": "Enterprise Engineering Inventory Management System (EMIS) for the Instrument Department at ZFOD. Built with real-time advanced search, official Excel imports, and AI visual scanner.",
+  "name": "EMIS – Engineering Material Intelligence System",
+  "description": "EMIS – Engineering Material Intelligence System (Port 14 Operational Excellence) with Command Center, Action Center, Data Quality Engine, Global Instant Search, Unified Design System, and Multilingual Material Ledger.",
   "requestFramePermissions": [
     "camera"
   ],

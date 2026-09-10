@@ -65,8 +65,8 @@ export default function GovernanceView({ currentUser }: GovernanceViewProps) {
   const [expandedManual, setExpandedManual] = useState<string | null>('warehouse');
 
   useEffect(() => {
-    setFeedbacks(dbService.getFeedback());
-    setDecisions(dbService.getEngineeringDecisions());
+    setFeedbacks(dbService.getFeedback() || []);
+    setDecisions(dbService.getEngineeringDecisions() || []);
   }, []);
 
   const handleFeedbackSubmit = (e: React.FormEvent) => {

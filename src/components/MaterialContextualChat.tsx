@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquare, Send, Sparkles } from 'lucide-react';
 import { Material, User } from '../types';
 import { dbService } from '../services/dbService';
+import { apiChatWithAi } from '../services/apiClient';
 
 interface MaterialContextualChatProps {
   material: Material;
@@ -75,21 +76,12 @@ Your guidelines:
 4. If asked about technical parameters, authenticity, or compatibility with other equipment, and the provided material context doesn't explicitly confirm it with 100% certainty, you MUST clearly warn the engineer that this is an AI estimate/assessment and not an official database confirmation, and strongly recommend reviewing the official OEM datasheet or contacting the OEM/warehouse supervisors.
 5. Keep the tone helpful, engineering-focused, and completely objective. Avoid promotional language.`;
 
-      const response = await fetch('/api/gemini/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: userMessageText,
-          history: currentHistory.slice(0, -1),
-          systemInstruction: systemInstruction
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to communicate with AI Engineering Assistant");
-      }
-
-      const resData = await response.json();
+      const resData = await apiChatWithAi(
+        userMessageText,
+        currentHistory.slice(0, -1),
+        systemInstruction,
+        [material]
+      );
 
       const assistantMsg = {
         role: 'model' as const,

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   LayoutDashboard, 
@@ -14,43 +14,172 @@ import {
   Menu, 
   X, 
   Cpu, 
-  User, 
   ShieldCheck,
-  Zap,
-  Info,
-  Warehouse,
-  Database,
-  Cloud
+  Zap, 
+  Warehouse, 
+  Database, 
+  Cloud, 
+  Activity, 
+  FileCheck2, 
+  ShieldAlert, 
+  BarChart3, 
+  ChevronRight, 
+  ChevronDown, 
+  Sparkles, 
+  FileText, 
+  FileSpreadsheet, 
+  GitBranch, 
+  Building2, 
+  Compass, 
+  Globe, 
+  Bell, 
+  Settings, 
+  Trash2, 
+  BellRing, 
+  Shield, 
+  Command, 
+  FolderMinus, 
+  FolderPlus,
+  SlidersHorizontal
 } from 'lucide-react';
-import { User as UserType, UserRole } from '../types';
+import { User as UserType, UserRole, Material } from '../types';
+import { useLanguage } from '../contexts/LanguageContext';
+import { dbService } from '../services/dbService';
+import { getActionCenterItems } from '../services/port14Service';
+import NetworkStatusIndicator from './NetworkStatusIndicator';
+import NotificationCenter from './NotificationCenter';
+import UserSettingsModal from './UserSettingsModal';
+import GlobalHeaderSearch from './GlobalHeaderSearch';
+import QuickNavigationModal, { ALL_NAV_ITEMS, NavItemConfig } from './QuickNavigationModal';
 
 interface NavigationProps {
   activeTab: string;
-  setActiveTab: (tab: string) => void;
+  setActiveTab: (tab: string, searchInitial?: string) => void;
   currentUser: UserType;
   onLogout: () => void;
+  onOpenWhatsNew?: () => void;
+  onSelectMaterial?: (material: Material) => void;
+  recentTabs?: string[];
 }
 
-export default function Navigation({ activeTab, setActiveTab, currentUser, onLogout }: NavigationProps) {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [showAiTeaser, setShowAiTeaser] = useState(false);
+export default function Navigation({ 
+  activeTab, 
+  setActiveTab, 
+  currentUser, 
+  onLogout,
+  onOpenWhatsNew,
+  onSelectMaterial,
+  recentTabs = []
+}: NavigationProps) {
+  const { language, t, isRTL } = useLanguage();
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+  const [isNotifCenterOpen, setIsNotifCenterOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isQuickSwitcherOpen, setIsQuickSwitcherOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [actionItemCount, setActionItemCount] = useState(0);
+  
+  // Navigation Search & Filtering
+  const [sidebarSearch, setSidebarSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  
+  // Accordion state
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
-  const menuItems = [
-    { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard, roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER] },
-    { id: 'materials', name: 'Materials Ledger', icon: Layers, roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER] },
-    { id: 'equipment', name: 'Equipment', icon: Warehouse, roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER] },
-    { id: 'add-material', name: 'Add Material', icon: PlusCircle, roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER] },
-    { id: 'search', name: 'Multi-Field Search', icon: Search, roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER] },
-    { id: 'governance', name: 'Governance & Training', icon: ShieldCheck, roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER] },
-    { id: 'backup-sync', name: 'Backup & Sync Center', icon: Database, roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER] },
-    { id: 'google-drive', name: 'Google Drive Vault', icon: Cloud, roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER] }
-  ];
+  // Global Ctrl+K / Cmd+K listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsQuickSwitcherOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
-  const allowedMenuItems = menuItems.filter(item => item.roles.includes(currentUser.role));
+  const toggleGroupCollapse = (groupId: string) => {
+    setCollapsedGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
+  };
 
-  const handleTabClick = (tabId: string) => {
-    setActiveTab(tabId);
-    setIsMobileMenuOpen(false);
+  const expandAllGroups = () => setCollapsedGroups({});
+  const collapseAllGroups = () => {
+    const allCollapsed: Record<string, boolean> = {};
+    uniqueGroups.forEach(g => { allCollapsed[g.id] = true; });
+    setCollapsedGroups(allCollapsed);
+  };
+
+  const updateCounts = () => {
+    const notifs = dbService.getNotifications(currentUser);
+    const unread = notifs.filter(n => !n.read).length;
+    setUnreadCount(unread);
+
+    const actions = getActionCenterItems(currentUser);
+    setActionItemCount(actions.length);
+  };
+
+  useEffect(() => {
+    updateCounts();
+    const handleUpdate = () => updateCounts();
+    window.addEventListener('emis:notifications-updated', handleUpdate);
+    window.addEventListener('emis:notification-added', handleUpdate);
+    window.addEventListener('emis:sync-status-changed', handleUpdate);
+    window.addEventListener('emis:material-added', handleUpdate);
+    return () => {
+      window.removeEventListener('emis:notifications-updated', handleUpdate);
+      window.removeEventListener('emis:notification-added', handleUpdate);
+      window.removeEventListener('emis:sync-status-changed', handleUpdate);
+      window.removeEventListener('emis:material-added', handleUpdate);
+    };
+  }, [currentUser]);
+
+  // Group definitions
+  const uniqueGroups = useMemo(() => [
+    { id: 'group-dashboard', titleKey: 'groupCommandCenter', fallback: 'Command Center', ar: 'مركز القيادة والتحكم' },
+    { id: 'group-materials', titleKey: 'groupMaterials', fallback: 'Materials Management', ar: 'إدارة المواد والمخزون' },
+    { id: 'group-search', titleKey: 'groupSearch', fallback: 'Search & Intelligence', ar: 'البحث والاستخبارات الذكية' },
+    { id: 'group-ops', titleKey: 'groupOps', fallback: 'Operations & Engineering', ar: 'العمليات والهندسة' },
+    { id: 'group-docs', titleKey: 'groupDocs', fallback: 'Documents & Import', ar: 'الوثائق والاستيراد' },
+    { id: 'group-reports', titleKey: 'groupReports', fallback: 'Reports & Quality', ar: 'التقارير والجودة' },
+    { id: 'group-admin', titleKey: 'groupAdmin', fallback: 'Administration & Governance', ar: 'الإدارة والحوكمة' }
+  ], []);
+
+  // Filtered navigation items based on user role, category filter, and sidebar search
+  const visibleGroups = useMemo(() => {
+    const s = sidebarSearch.toLowerCase().trim();
+
+    return uniqueGroups.map(group => {
+      // Category filter
+      if (selectedCategory !== 'all' && group.id !== selectedCategory) {
+        return null;
+      }
+
+      const items = ALL_NAV_ITEMS.filter(item => {
+        if (item.groupId !== group.id) return false;
+        if (!item.roles.includes(currentUser.role)) return false;
+
+        if (!s) return true;
+
+        const nameDisplay = (language === 'ar' ? item.arabicName : (t(item.nameKey as any) || item.fallbackName)).toLowerCase();
+        const enName = item.fallbackName.toLowerCase();
+        const arName = item.arabicName.toLowerCase();
+        const keywords = item.keywords.some(k => k.toLowerCase().includes(s));
+
+        return nameDisplay.includes(s) || enName.includes(s) || arName.includes(s) || keywords || item.id.includes(s);
+      });
+
+      if (items.length === 0) return null;
+
+      return {
+        ...group,
+        items
+      };
+    }).filter(Boolean) as { id: string; titleKey: string; fallback: string; ar: string; items: NavItemConfig[] }[];
+  }, [uniqueGroups, selectedCategory, sidebarSearch, currentUser.role, language, t]);
+
+  const handleTabClick = (tabId: string, initialSearch?: string) => {
+    setActiveTab(tabId, initialSearch);
+    setIsMobileDrawerOpen(false);
   };
 
   const getRoleBadgeColor = (role: UserRole) => {
@@ -70,242 +199,558 @@ export default function Navigation({ activeTab, setActiveTab, currentUser, onLog
     }
   };
 
+  // Mobile Bottom Navigation Primary Tabs
+  const mobileBottomTabs = [
+    { id: 'dashboard', label: language === 'ar' ? 'الرئيسية' : 'Command', icon: LayoutDashboard },
+    { id: 'action-center', label: language === 'ar' ? 'الإجراءات' : 'Actions', icon: BellRing, count: actionItemCount },
+    { id: 'materials', label: language === 'ar' ? 'المخزون' : 'Materials', icon: Layers },
+    { id: 'search', label: language === 'ar' ? 'البحث' : 'Search', icon: Search },
+  ];
+
+  // Quick filter categories
+  const categoryChips = [
+    { id: 'all', label: language === 'ar' ? 'الكل' : 'All' },
+    { id: 'group-dashboard', label: language === 'ar' ? 'الرئيسية' : 'Core' },
+    { id: 'group-materials', label: language === 'ar' ? 'المواد' : 'Materials' },
+    { id: 'group-search', label: language === 'ar' ? 'البحث والذكاء' : 'Search & AI' },
+    { id: 'group-ops', label: language === 'ar' ? 'العمليات' : 'Ops' },
+    { id: 'group-admin', label: language === 'ar' ? 'الإدارة' : 'Admin' }
+  ];
+
   return (
     <>
-      {/* MOBILE TOP BAR */}
-      <header className="lg:hidden h-16 bg-industrial-900 border-b border-industrial-800 px-4 flex items-center justify-between sticky top-0 z-40 text-white">
-        <div className="flex items-center gap-2">
+      {/* MOBILE TOP HEADER */}
+      <header className="lg:hidden h-14 bg-industrial-900 border-b border-industrial-800 px-3 flex items-center justify-between sticky top-0 z-40 text-white select-none gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <div className="p-1.5 bg-brand-600/20 border border-brand-500/30 rounded-lg">
-            <Cpu className="h-5 w-5 text-brand-500" />
+            <Cpu className="h-4 w-4 text-brand-500" />
           </div>
-          <span className="font-bold tracking-tight heading-display text-base">EMIS v1.0</span>
+          <div>
+            <span className="font-bold tracking-tight heading-display text-xs">EMIS</span>
+            <span className="text-[9px] text-brand-400 font-mono ml-1 px-1 py-0.2 rounded bg-brand-500/15 border border-brand-500/30 font-bold">v3.1</span>
+          </div>
+        </div>
+
+        {/* Global Search on Mobile */}
+        <div className="flex-1 max-w-xs mx-1">
+          <GlobalHeaderSearch
+            onSelectMaterial={onSelectMaterial}
+            onNavigateToTab={handleTabClick}
+          />
         </div>
         
-        <div className="flex items-center gap-3">
-          <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border uppercase ${getRoleBadgeColor(currentUser.role)}`}>
-            {currentUser.role}
-          </span>
-          <button 
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-1.5 rounded-lg hover:bg-industrial-800 text-industrial-400 hover:text-white transition-colors cursor-pointer"
-            aria-label="Toggle menu"
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Quick Switcher Trigger (Mobile) */}
+          <button
+            type="button"
+            onClick={() => setIsQuickSwitcherOpen(true)}
+            className="p-1.5 rounded-lg bg-brand-600/20 hover:bg-brand-600/30 text-brand-300 border border-brand-500/30 transition-colors cursor-pointer"
+            title={language === 'ar' ? 'التنقل السريع بين القوائم' : 'Quick Navigation'}
           >
-            {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            <Command className="h-3.5 w-3.5" />
+          </button>
+
+          {/* Action Center Trigger */}
+          <button
+            onClick={() => handleTabClick('action-center')}
+            className="relative p-1.5 rounded-lg bg-industrial-800 hover:bg-industrial-750 text-industrial-200 border border-industrial-700 transition-colors cursor-pointer"
+            title="Action Center"
+          >
+            <BellRing className="h-3.5 w-3.5 text-amber-400" />
+            {actionItemCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-500 text-white font-bold text-[8px] rounded-full flex items-center justify-center border border-industrial-900 animate-pulse">
+                {actionItemCount > 9 ? '9+' : actionItemCount}
+              </span>
+            )}
+          </button>
+
+          {/* Centralized User Settings Trigger */}
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className="p-1.5 rounded-lg bg-industrial-800 hover:bg-industrial-750 text-industrial-200 border border-industrial-700 transition-colors cursor-pointer"
+            title="User Profile & Settings"
+          >
+            <Settings className="h-3.5 w-3.5" />
           </button>
         </div>
       </header>
 
-      {/* MOBILE MENU OVERLAY */}
+      {/* MOBILE FULL NAVIGATION DRAWER */}
       <AnimatePresence>
-        {isMobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-            className="lg:hidden fixed inset-x-0 top-16 bg-industrial-900 border-b border-industrial-800 shadow-2xl z-30 p-5 space-y-5 text-white"
-          >
-            {/* User Profile Summary */}
-            <div className="bg-industrial-800 p-4 rounded-xl border border-industrial-700/60 flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-brand-600/10 border border-brand-500/30 flex items-center justify-center text-brand-500">
-                <User className="h-5 w-5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm truncate">{currentUser.name}</p>
-                <p className="text-xs text-industrial-400 truncate font-mono">{currentUser.email}</p>
-              </div>
-            </div>
+        {isMobileDrawerOpen && (
+          <div className="lg:hidden fixed inset-0 z-50 flex">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMobileDrawerOpen(false)}
+              className="fixed inset-0 bg-black/70 backdrop-blur-xs"
+            />
 
-            {/* Menu Links */}
-            <nav className="space-y-1">
-              {allowedMenuItems.map((item) => {
-                const Icon = item.icon;
-                const isSelected = activeTab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => handleTabClick(item.id)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
-                      isSelected 
-                        ? 'bg-brand-600 text-white shadow-lg shadow-brand-950/40' 
-                        : 'text-industrial-400 hover:text-white hover:bg-industrial-800'
-                    }`}
-                  >
-                    <Icon className="h-5 w-5 shrink-0" />
-                    <span>{item.name}</span>
-                  </button>
-                );
-              })}
-            </nav>
-
-            {/* Future AI Placeholder */}
-            <div className="pt-3 border-t border-industrial-800">
-              <button
-                onClick={() => handleTabClick('ai-copilot')}
-                className={`w-full flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-industrial-850 to-industrial-800 hover:from-brand-950/20 hover:to-brand-900/10 border border-industrial-700 rounded-xl text-xs font-mono transition-all cursor-pointer ${
-                  activeTab === 'ai-copilot'
-                    ? 'text-white border-brand-500 bg-brand-950/20'
-                    : 'text-brand-400 font-semibold'
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <Zap className="h-4 w-4 animate-pulse" />
-                  <span>AI Co-Pilot (v0.2)</span>
-                </span>
-                <span className="bg-brand-500/15 text-brand-400 border border-brand-500/30 text-[9px] uppercase px-1.5 py-0.5 rounded font-bold">
-                  Active
-                </span>
-              </button>
-            </div>
-
-            {/* Logout button */}
-            <button
-              onClick={onLogout}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-950/20 hover:bg-red-950/40 border border-red-500/20 text-red-400 text-sm font-medium rounded-xl transition-colors cursor-pointer"
+            {/* Drawer Content */}
+            <motion.aside
+              initial={{ x: isRTL ? '100%' : '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: isRTL ? '100%' : '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="relative w-4/5 max-w-sm bg-industrial-900 border-r border-industrial-800 h-full flex flex-col z-10 text-white shadow-2xl"
+              dir={isRTL ? 'rtl' : 'ltr'}
             >
-              <LogOut className="h-4 w-4" />
-              <span>Disconnect Session</span>
-            </button>
-          </motion.div>
+              {/* Drawer Top */}
+              <div className="p-4 border-b border-industrial-800 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 bg-brand-600/20 border border-brand-500/30 rounded-lg">
+                    <Cpu className="h-5 w-5 text-brand-500" />
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-sm text-white">EMIS v3.1</h2>
+                    <p className="text-[10px] text-industrial-400 font-mono">
+                      {language === 'ar' ? 'نظام تصفح القوائم الهندسي' : 'Engineering Navigation Hub'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setIsMobileDrawerOpen(false)}
+                    className="p-1.5 rounded-lg text-industrial-400 hover:text-white hover:bg-industrial-800 cursor-pointer"
+                    aria-label="Close Drawer"
+                  >
+                    <X className="h-4.5 w-4.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Jump Search in Mobile Drawer */}
+              <div className="px-3 pt-3 pb-1">
+                <div className="relative flex items-center">
+                  <Search className={`absolute ${isRTL ? 'right-2.5' : 'left-2.5'} h-3.5 w-3.5 text-industrial-400`} />
+                  <input
+                    type="text"
+                    value={sidebarSearch}
+                    onChange={(e) => setSidebarSearch(e.target.value)}
+                    placeholder={language === 'ar' ? 'ابحث في القوائم...' : 'Search menus...'}
+                    className={`w-full py-1.5 ${isRTL ? 'pr-8 pl-8' : 'pl-8 pr-8'} bg-industrial-800/90 border border-industrial-700/80 rounded-xl text-xs text-white placeholder-industrial-400 focus:outline-hidden focus:border-brand-500 transition-all`}
+                  />
+                  {sidebarSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setSidebarSearch('')}
+                      className={`absolute ${isRTL ? 'left-2.5' : 'right-2.5'} text-industrial-400 hover:text-white`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Category Filter Pills (Mobile) */}
+              <div className="px-3 py-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                {categoryChips.map(cat => {
+                  const isSel = selectedCategory === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setSelectedCategory(cat.id)}
+                      className={`px-2 py-0.8 text-[11px] font-semibold rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                        isSel 
+                          ? 'bg-brand-600 text-white shadow-2xs' 
+                          : 'bg-industrial-800 text-industrial-300 hover:bg-industrial-750 border border-industrial-700/50'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Grouped Navigation Links */}
+              <div className="flex-1 px-3 space-y-3 overflow-y-auto py-2">
+                {visibleGroups.map(group => {
+                  const groupTitle = language === 'ar' ? group.ar : (t(group.titleKey as any) || group.fallback);
+                  return (
+                    <div key={group.id} className="space-y-1">
+                      <span className="px-2 text-[10px] font-mono uppercase text-industrial-400 font-bold tracking-wider block">
+                        {groupTitle}
+                      </span>
+                      {group.items.map(item => {
+                        const Icon = item.icon;
+                        const isSelected = activeTab === item.id;
+                        const itemTitle = language === 'ar' ? item.arabicName : (t(item.nameKey as any) || item.fallbackName);
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => handleTabClick(item.id)}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+                              isSelected 
+                                ? 'bg-brand-600 text-white font-bold shadow-xs' 
+                                : 'text-industrial-300 hover:text-white hover:bg-industrial-800'
+                            }`}
+                          >
+                            <span className="flex items-center gap-2.5 min-w-0">
+                              <Icon className="h-4 w-4 shrink-0" />
+                              <span className="truncate">{itemTitle}</span>
+                            </span>
+                            {item.badge && (
+                              <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-brand-500/20 text-brand-400 border border-brand-500/30 shrink-0">
+                                {item.badge}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Drawer Bottom Actions */}
+              <div className="p-3 border-t border-industrial-800 space-y-2">
+                <button
+                  onClick={() => {
+                    setIsMobileDrawerOpen(false);
+                    setIsSettingsOpen(true);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2 bg-industrial-850 hover:bg-industrial-800 border border-industrial-750 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Settings className="h-4 w-4 text-brand-400" />
+                    <span>{language === 'ar' ? 'الملف الشخصي واللغة' : 'Profile & Language'}</span>
+                  </div>
+                  <ChevronRight className={`h-3.5 w-3.5 text-industrial-400 ${isRTL ? 'rotate-180' : ''}`} />
+                </button>
+
+                <button
+                  onClick={onLogout}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-950/20 hover:bg-red-950/40 border border-red-500/20 text-red-400 text-xs font-medium rounded-xl transition-colors cursor-pointer"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span>{language === 'ar' ? 'إنهاء الجلسة' : 'Disconnect Session'}</span>
+                </button>
+              </div>
+            </motion.aside>
+          </div>
         )}
       </AnimatePresence>
 
+      {/* MOBILE BOTTOM NAVIGATION BAR */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-industrial-900/95 backdrop-blur-md border-t border-industrial-800 px-2 z-40 flex items-center justify-around text-white">
+        {mobileBottomTabs.map((tab) => {
+          const Icon = tab.icon;
+          const isSelected = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`relative flex flex-col items-center justify-center gap-1 py-1 px-2.5 rounded-xl transition-all cursor-pointer ${
+                isSelected ? 'text-brand-400 font-bold' : 'text-industrial-400 hover:text-industrial-200'
+              }`}
+            >
+              <div className={`p-1 rounded-lg ${isSelected ? 'bg-brand-500/20' : ''}`}>
+                <Icon className="h-4.5 w-4.5" />
+              </div>
+              <span className="text-[10px] tracking-tight whitespace-nowrap">{tab.label}</span>
+              {tab.count !== undefined && tab.count > 0 && (
+                <span className="absolute top-1 right-2 w-3.5 h-3.5 bg-rose-500 text-white font-bold text-[8px] rounded-full flex items-center justify-center">
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+
+        {/* Quick Switcher Button (Center/Right on Mobile) */}
+        <button
+          onClick={() => setIsQuickSwitcherOpen(true)}
+          className="flex flex-col items-center justify-center gap-1 py-1 px-2.5 rounded-xl text-brand-400 hover:text-brand-300 transition-all cursor-pointer"
+          title={language === 'ar' ? 'التنقل السريع' : 'Quick Switcher'}
+        >
+          <div className="p-1 rounded-lg bg-brand-500/20 border border-brand-500/30">
+            <Command className="h-4.5 w-4.5 text-brand-400" />
+          </div>
+          <span className="text-[10px] tracking-tight">{language === 'ar' ? 'التنقل' : 'Jump'}</span>
+        </button>
+
+        {/* More Tab Trigger */}
+        <button
+          onClick={() => setIsMobileDrawerOpen(true)}
+          className={`flex flex-col items-center justify-center gap-1 py-1 px-2.5 rounded-xl transition-all cursor-pointer ${
+            isMobileDrawerOpen ? 'text-brand-400' : 'text-industrial-400 hover:text-industrial-200'
+          }`}
+        >
+          <div className="p-1 rounded-lg">
+            <Menu className="h-4.5 w-4.5" />
+          </div>
+          <span className="text-[10px] tracking-tight">{language === 'ar' ? 'القوائم' : 'Menus'}</span>
+        </button>
+      </nav>
+
       {/* DESKTOP SIDEBAR */}
-      <aside className="hidden lg:flex flex-col w-64 bg-industrial-900 border-r border-industrial-800 h-screen sticky top-0 shrink-0 text-white select-none">
-        {/* Top Logo */}
-        <div className="p-6 border-b border-industrial-800 flex items-center gap-2.5">
-          <div className="p-2 bg-brand-600/10 border border-brand-500/30 rounded-xl shadow-inner">
-            <Cpu className="h-6 w-6 text-brand-500" />
+      <aside 
+        className="hidden lg:flex flex-col w-64 bg-industrial-900 border-r border-industrial-800 h-screen sticky top-0 shrink-0 text-white select-none transition-all duration-200"
+        dir={isRTL ? 'rtl' : 'ltr'}
+      >
+        {/* Top Brand Header */}
+        <div className="p-3.5 border-b border-industrial-800 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-brand-600/15 border border-brand-500/30 rounded-xl shadow-inner">
+              <Cpu className="h-5 w-5 text-brand-500" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <h1 className="font-bold tracking-tight text-base heading-display text-white">EMIS</h1>
+                <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-brand-500/20 text-brand-400 border border-brand-500/30">
+                  v3.1
+                </span>
+              </div>
+              <p className="text-[10px] text-industrial-400 font-mono tracking-wider">
+                {language === 'ar' ? 'نظام إدارة المواد' : 'MATERIAL INTELLIGENCE'}
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="font-bold tracking-tight text-lg heading-display text-white">EMIS LEDGER</h1>
-            <p className="text-[10px] text-brand-500 font-mono tracking-widest uppercase">Release v1.0</p>
-          </div>
+          <NetworkStatusIndicator
+            idPrefix="desktop-sidebar-nav"
+            onNavigateToSync={() => setActiveTab('backup-sync')}
+          />
         </div>
 
-        {/* User Identity Panel */}
-        <div className="p-4 mx-4 my-5 bg-industrial-850/80 border border-industrial-800/80 rounded-2xl flex flex-col items-center text-center shadow-lg">
-          <div className="h-12 w-12 rounded-xl bg-linear-to-b from-brand-600 to-brand-700/60 flex items-center justify-center text-white font-bold text-lg shadow-md mb-2 border border-brand-500/25">
-            {currentUser.name.split(' ').map(n => n[0]).join('')}
-          </div>
-          <p className="font-semibold text-sm truncate w-full text-white">{currentUser.name}</p>
-          <span className={`text-[10px] font-mono px-2.5 py-0.5 rounded-full border uppercase mt-1.5 font-medium ${getRoleBadgeColor(currentUser.role)}`}>
-            {currentUser.role}
-          </span>
-          <p className="text-[10px] text-industrial-500 font-mono mt-2 truncate w-full">{currentUser.email}</p>
-        </div>
+        {/* Quick Command Launcher (Ctrl+K) */}
+        <div className="px-3 pt-3 pb-2 space-y-2 border-b border-industrial-800/80">
+          <button
+            type="button"
+            onClick={() => setIsQuickSwitcherOpen(true)}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-industrial-850 hover:bg-industrial-800 border border-industrial-750 hover:border-brand-500/40 text-industrial-300 hover:text-white text-xs font-medium transition-all group cursor-pointer shadow-2xs"
+            title="Press Ctrl+K to jump anywhere"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <Search className="h-3.5 w-3.5 text-brand-400 group-hover:scale-110 transition-transform" />
+              <span className="truncate">{language === 'ar' ? 'التنقل السريع بين القوائم...' : 'Jump to any screen...'}</span>
+            </div>
+            <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-industrial-800 group-hover:bg-brand-600/30 text-industrial-400 group-hover:text-brand-300 border border-industrial-700 transition-colors">
+              Ctrl+K
+            </kbd>
+          </button>
 
-        {/* Sidebar Links */}
-        <div className="flex-1 px-4 space-y-1.5 overflow-y-auto">
-          <span className="px-3 text-[10px] text-industrial-500 uppercase tracking-widest font-mono font-medium block mb-2.5">
-            OPERATIONAL MENUS
-          </span>
-          {allowedMenuItems.map((item) => {
-            const Icon = item.icon;
-            const isSelected = activeTab === item.id;
-            return (
+          {/* Action Center & Notification Bar */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleTabClick('action-center')}
+              className={`flex-1 flex items-center justify-between px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                activeTab === 'action-center'
+                  ? 'bg-amber-500/20 border-amber-500 text-amber-300'
+                  : 'bg-industrial-850 hover:bg-industrial-800 border-industrial-750 text-industrial-300 hover:text-white'
+              }`}
+            >
+              <div className="flex items-center gap-1.5">
+                <BellRing className="h-3.5 w-3.5 text-amber-400" />
+                <span className="truncate">{language === 'ar' ? 'الإجراءات' : 'Action Center'}</span>
+              </div>
+              {actionItemCount > 0 && (
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-rose-500 text-white">
+                  {actionItemCount}
+                </span>
+              )}
+            </button>
+
+            {/* Notification Bell */}
+            <button
+              onClick={() => setIsNotifCenterOpen(true)}
+              className="relative p-2 rounded-xl bg-industrial-850 hover:bg-industrial-800 text-industrial-300 hover:text-white border border-industrial-750 transition-colors cursor-pointer shrink-0"
+              title="Notification Center"
+              id="desktop-bell-btn"
+            >
+              <Bell className="h-3.5 w-3.5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-500 text-white font-bold text-[8px] rounded-full flex items-center justify-center border border-industrial-900 animate-pulse">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Category Filter Chips in Desktop Sidebar */}
+          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pt-1">
+            {categoryChips.map(cat => {
+              const isSel = selectedCategory === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={`px-2 py-0.8 text-[10px] font-semibold rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                    isSel 
+                      ? 'bg-brand-600 text-white font-bold shadow-2xs' 
+                      : 'bg-industrial-800/80 text-industrial-400 hover:text-industrial-200 hover:bg-industrial-750'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Quick Menu Filter Input */}
+          <div className="relative flex items-center pt-0.5">
+            <input
+              type="text"
+              value={sidebarSearch}
+              onChange={(e) => setSidebarSearch(e.target.value)}
+              placeholder={language === 'ar' ? 'تصفية القوائم الحالية...' : 'Filter navigation list...'}
+              className={`w-full py-1.2 ${isRTL ? 'pr-7 pl-7' : 'pl-7 pr-7'} bg-industrial-950/60 border border-industrial-800 rounded-lg text-[11px] text-white placeholder-industrial-400 focus:outline-hidden focus:border-brand-500/50 transition-all`}
+            />
+            <Search className={`absolute ${isRTL ? 'right-2' : 'left-2'} h-3 w-3 text-industrial-400`} />
+            {sidebarSearch && (
               <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all duration-150 cursor-pointer ${
-                  isSelected 
-                    ? 'bg-brand-600 text-white shadow-md shadow-brand-950/40 hover:bg-brand-500 translate-x-1' 
-                    : 'text-industrial-400 hover:text-white hover:bg-industrial-850'
-                }`}
+                type="button"
+                onClick={() => setSidebarSearch('')}
+                className={`absolute ${isRTL ? 'left-2' : 'right-2'} text-industrial-400 hover:text-white`}
               >
-                <Icon className="h-4.5 w-4.5 shrink-0" />
-                <span>{item.name}</span>
+                <X className="h-3 w-3" />
               </button>
+            )}
+          </div>
+        </div>
+
+        {/* Grouped Sidebar Navigation Items */}
+        <div className="flex-1 px-2.5 space-y-3 overflow-y-auto py-2.5">
+          {visibleGroups.map(group => {
+            const isCollapsed = collapsedGroups[group.id];
+            const groupTitle = language === 'ar' ? group.ar : (t(group.titleKey as any) || group.fallback);
+
+            return (
+              <div key={group.id} className="space-y-0.5">
+                <button
+                  onClick={() => toggleGroupCollapse(group.id)}
+                  className="w-full flex items-center justify-between px-2 py-1 text-[10px] uppercase font-mono tracking-wider text-industrial-400 hover:text-industrial-200 cursor-pointer font-bold select-none rounded-lg hover:bg-industrial-850/60 transition-colors"
+                >
+                  <span>{groupTitle}</span>
+                  <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${isCollapsed ? '-rotate-90 text-industrial-600' : ''}`} />
+                </button>
+
+                {!isCollapsed && (
+                  <div className="space-y-0.5">
+                    {group.items.map(item => {
+                      const Icon = item.icon;
+                      const isSelected = activeTab === item.id;
+                      const itemTitle = language === 'ar' ? item.arabicName : (t(item.nameKey as any) || item.fallbackName);
+
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => setActiveTab(item.id)}
+                          className={`w-full flex items-center justify-between px-2.5 py-1.8 rounded-xl text-xs font-medium transition-all duration-150 cursor-pointer ${
+                            isSelected 
+                              ? 'bg-brand-600 text-white shadow-xs font-bold' 
+                              : 'text-industrial-300 hover:text-white hover:bg-industrial-850'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <Icon className={`h-3.5 w-3.5 shrink-0 ${isSelected ? 'text-white' : 'text-industrial-400'}`} />
+                            <span className="truncate">{itemTitle}</span>
+                          </div>
+                          {item.badge && (
+                            <span className={`text-[8px] font-mono uppercase px-1.5 py-0.2 rounded font-bold shrink-0 ${
+                              isSelected 
+                                ? 'bg-white/20 text-white' 
+                                : item.id === 'action-center'
+                                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                : 'bg-brand-500/20 text-brand-400 border border-brand-500/30'
+                            }`}>
+                              {item.badge}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })}
 
-          {/* Locked AI Feature */}
-          <div className="pt-6 mt-4 border-t border-industrial-850">
-            <span className="px-3 text-[10px] text-industrial-500 uppercase tracking-widest font-mono font-medium block mb-2">
-              AUTOMATION MODULES
-            </span>
-            <button
-              onClick={() => setActiveTab('ai-copilot')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 bg-gradient-to-r from-industrial-950 to-industrial-850 hover:from-brand-950/20 hover:to-brand-900/15 border border-industrial-800 rounded-xl text-xs font-mono transition-all duration-150 cursor-pointer ${
-                activeTab === 'ai-copilot'
-                  ? 'text-white border-brand-500 bg-brand-950/30 font-bold'
-                  : 'text-industrial-400 hover:text-brand-400'
-              }`}
-            >
-              <span className="flex items-center gap-2">
-                <Zap className="h-4 w-4 text-brand-500 animate-pulse shrink-0" />
-                <span>AI Co-Pilot</span>
-              </span>
-              <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[8px] uppercase px-1.5 py-0.2 rounded font-mono font-bold shrink-0">
-                ACTIVE
-              </span>
-            </button>
-          </div>
+          {visibleGroups.length === 0 && (
+            <div className="py-6 text-center text-industrial-400 text-xs">
+              <p>{language === 'ar' ? 'لا توجد قوائم مطابقة لبحثك' : 'No menus match your filter'}</p>
+              <button
+                type="button"
+                onClick={() => { setSidebarSearch(''); setSelectedCategory('all'); }}
+                className="mt-2 text-brand-400 hover:underline text-[11px] cursor-pointer"
+              >
+                {language === 'ar' ? 'إعادة ضبط التصفية' : 'Reset filters'}
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Bottom Actions */}
-        <div className="p-4 border-t border-industrial-800">
+        {/* Bottom Actions & User Profile */}
+        <div className="p-3 border-t border-industrial-800 space-y-2">
+          {onOpenWhatsNew && (
+            <button
+              onClick={onOpenWhatsNew}
+              className="w-full flex items-center justify-between px-2.5 py-1.5 bg-brand-950/20 hover:bg-brand-950/40 border border-brand-500/30 text-brand-300 text-xs font-medium rounded-xl transition-all cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-3.5 w-3.5 text-brand-400" />
+                <span>{language === 'ar' ? 'ما الجديد في النظام' : "What's New in v3.1"}</span>
+              </div>
+              <ChevronRight className={`h-3.5 w-3.5 text-brand-400 ${isRTL ? 'rotate-180' : ''}`} />
+            </button>
+          )}
+
+          {/* User Settings & Language Button */}
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className="w-full flex items-center justify-between px-2.5 py-1.5 bg-industrial-850 hover:bg-industrial-800 border border-industrial-750 text-white text-xs font-medium rounded-xl transition-all cursor-pointer"
+          >
+            <div className="flex items-center gap-2 truncate">
+              <div className="h-6 w-6 rounded-lg bg-brand-600 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+                {currentUser.name.split(' ').map(n => n[0]).join('')}
+              </div>
+              <div className="text-left truncate">
+                <p className="font-semibold text-xs truncate leading-tight">{currentUser.name}</p>
+                <span className="text-[9px] text-industrial-400 font-mono uppercase">{currentUser.role}</span>
+              </div>
+            </div>
+            <Settings className="h-3.5 w-3.5 text-industrial-400 shrink-0" />
+          </button>
+
           <button
             onClick={onLogout}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-red-950/10 hover:bg-red-950/30 border border-red-500/10 hover:border-red-500/20 text-red-400 text-xs font-medium rounded-xl transition-all duration-150 cursor-pointer"
+            className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-red-950/10 hover:bg-red-950/30 border border-red-500/10 text-red-400 text-xs font-medium rounded-xl transition-all cursor-pointer"
           >
-            <LogOut className="h-4 w-4" />
-            <span>Disconnect Session</span>
+            <LogOut className="h-3.5 w-3.5" />
+            <span>{language === 'ar' ? 'إنهاء الجلسة' : 'Disconnect Session'}</span>
           </button>
         </div>
       </aside>
 
-      {/* AI Placeholder Modal */}
-      <AnimatePresence>
-        {showAiTeaser && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="w-full max-w-md bg-industrial-850 border border-industrial-700 p-6 rounded-2xl shadow-2xl text-white relative"
-            >
-              <button 
-                onClick={() => setShowAiTeaser(false)}
-                className="absolute top-4 right-4 text-industrial-400 hover:text-white p-1 rounded-lg hover:bg-industrial-800 cursor-pointer"
-              >
-                <X className="h-5 w-5" />
-              </button>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2.5 bg-brand-500/10 border border-brand-500/25 rounded-xl text-brand-400">
-                  <Zap className="h-6 w-6 animate-pulse" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-lg heading-display">AI Automation Engine</h3>
-                  <p className="text-[10px] text-brand-500 font-mono tracking-widest uppercase">EMIS v0.2 ROADMAP</p>
-                </div>
-              </div>
-              <div className="space-y-3.5 text-xs text-industrial-300 font-sans border-t border-industrial-800 pt-4">
-                <p>The AI Suite is currently deactivated for **Version 0.1 (Base Foundation)**.</p>
-                <p>In upcoming releases, the intelligent co-pilot will enable:</p>
-                <ul className="list-disc list-inside space-y-1.5 pl-1 font-mono text-[11px] text-brand-300">
-                  <li>Automatic PDF delivery note ingestion</li>
-                  <li>Optical Character Recognition (OCR) for parts scanning</li>
-                  <li>Dynamic multi-document schematics comparison</li>
-                  <li>Intelligent predictive restock forecasting</li>
-                </ul>
-                <div className="p-3 bg-industrial-900 border border-industrial-800 rounded-xl flex items-start gap-2.5 mt-2">
-                  <Info className="h-4.5 w-4.5 text-brand-400 shrink-0 mt-0.5" />
-                  <p className="text-[10px] text-industrial-400 leading-normal">
-                    This placeholder has been designed as an architectural gate for secure LLM proxy routing in Version 0.2. No active connections are made at this time.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowAiTeaser(false)}
-                className="w-full mt-5 bg-brand-600 hover:bg-brand-500 text-white font-medium py-2 px-4 rounded-xl text-xs transition-colors cursor-pointer"
-              >
-                Acknowledge and Close
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {/* Centralized User Profile & Settings Modal */}
+      <UserSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        currentUser={currentUser}
+        onLogout={onLogout}
+        onNavigateTab={handleTabClick}
+      />
+
+      {/* Global Real-Time Notification Center Drawer */}
+      <NotificationCenter
+        isOpen={isNotifCenterOpen}
+        onClose={() => setIsNotifCenterOpen(false)}
+        currentUser={currentUser}
+        onNavigateTab={handleTabClick}
+      />
+
+      {/* Quick Navigation / Command Palette Modal (Ctrl+K) */}
+      <QuickNavigationModal
+        isOpen={isQuickSwitcherOpen}
+        onClose={() => setIsQuickSwitcherOpen(false)}
+        activeTab={activeTab}
+        onNavigateTab={handleTabClick}
+        userRole={currentUser.role}
+        recentTabs={recentTabs}
+      />
     </>
   );
 }

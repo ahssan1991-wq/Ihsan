@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">EMIS Inspection System</string>
+    <string name="title_activity_main">EMIS Inspection System</string>
+    <string name="package_name">com.emis.inspection</string>
+    <string name="custom_url_scheme">com.emis.inspection</string>
+</resources>

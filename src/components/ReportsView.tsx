@@ -1,0 +1,401 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState } from 'react';
+import { motion } from 'motion/react';
+import { 
+  BarChart3, 
+  Download, 
+  Layers, 
+  Package, 
+  AlertTriangle, 
+  ShieldAlert, 
+  FileCheck2, 
+  Building2, 
+  MapPin, 
+  TrendingUp, 
+  FileSpreadsheet,
+  CheckCircle2,
+  Cpu
+} from 'lucide-react';
+import { Material, Equipment, User, EngineeringDecision, BlacklistItem } from '../types';
+import { dbService } from '../services/dbService';
+import * as XLSX from 'xlsx';
+
+interface ReportsViewProps {
+  materials?: Material[];
+  equipment?: Equipment[];
+  currentUser: User;
+  onNavigateToTab?: (tabId: string, query?: string) => void;
+}
+
+export default function ReportsView({ materials = [], equipment = [], currentUser, onNavigateToTab }: ReportsViewProps) {
+  const safeMaterials = Array.isArray(materials) ? materials : (dbService.getMaterials() || []);
+  const safeEquipment = Array.isArray(equipment) ? equipment : (dbService.getEquipment() || []);
+  const [decisions] = useState<EngineeringDecision[]>(() => dbService.getEngineeringDecisions() || []);
+  const [blacklist] = useState<BlacklistItem[]>(() => dbService.getBlacklist() || []);
+  const [exportSuccess, setExportSuccess] = useState<string | null>(null);
+
+  // Aggregations
+  const totalStockUnits = safeMaterials.reduce((acc, m) => acc + (Number(m.quantity) || 0), 0);
+  const lowStockItems = safeMaterials.filter(m => (Number(m.quantity) || 0) <= (Number(m.minStockLevel) || 10));
+  const zeroStockItems = safeMaterials.filter(m => (Number(m.quantity) || 0) === 0);
+
+  // Group by Manufacturer
+  const manufacturerCounts: Record<string, { count: number; totalUnits: number }> = {};
+  safeMaterials.forEach(m => {
+    const mfg = m.manufacturer ? m.manufacturer.trim().toUpperCase() : 'UNKNOWN';
+    if (!manufacturerCounts[mfg]) {
+      manufacturerCounts[mfg] = { count: 0, totalUnits: 0 };
+    }
+    manufacturerCounts[mfg].count += 1;
+    manufacturerCounts[mfg].totalUnits += Number(m.quantity) || 0;
+  });
+
+  const sortedManufacturers = Object.entries(manufacturerCounts)
+    .sort((a, b) => b[1].count - a[1].count);
+
+  // Group by Store Location
+  const storeCounts: Record<string, { count: number; totalUnits: number }> = {};
+  safeMaterials.forEach(m => {
+    const store = m.store ? m.store.trim() : 'Unassigned';
+    if (!storeCounts[store]) {
+      storeCounts[store] = { count: 0, totalUnits: 0 };
+    }
+    storeCounts[store].count += 1;
+    storeCounts[store].totalUnits += Number(m.quantity) || 0;
+  });
+
+  // Export Complete Audit Report to Excel
+  const handleExportExcel = () => {
+    try {
+      const wb = XLSX.utils.book_new();
+
+      // Strictly sort materials in ascending order by sequence (from smallest to largest: 1, 2, 3, ...)
+      const sortedMaterials = [...materials].sort((a, b) => {
+        const seqA = (a.sequence !== undefined && a.sequence !== null && !isNaN(Number(a.sequence))) ? Number(a.sequence) : Infinity;
+        const seqB = (b.sequence !== undefined && b.sequence !== null && !isNaN(Number(b.sequence))) ? Number(b.sequence) : Infinity;
+        
+        if (seqA !== seqB) {
+          return seqA - seqB;
+        }
+        return (a.partNumber || '').localeCompare(b.partNumber || '', undefined, { numeric: true, sensitivity: 'base' });
+      });
+
+      // Sheet 1: Master Materials (Ordered by Sequence 1 -> N with complete inspection specifications)
+      const materialsSheetData = sortedMaterials.map((m, idx) => ({
+        'Sequence / التسلسل': (m.sequence !== undefined && m.sequence !== null) ? m.sequence : (idx + 1),
+        'Part Number / رقم القطعة': m.partNumber,
+        'Material Code / كود المادة': m.materialCode || '',
+        'Description / الوصف الفني': m.description,
+        'Manufacturer / الشركة المصنعة': m.manufacturer,
+        'Model / الموديل': m.model,
+        'Quantity / الكمية': m.quantity,
+        'Unit / الوحدة': m.unit || 'EA',
+        'Min Safety Stock / الحد الأدنى': m.minStockLevel || 10,
+        'Stock Status / حالة المخزون': (m.quantity || 0) <= (m.minStockLevel || 10) ? 'LOW STOCK / منخفض' : 'SUFFICIENT / كافي',
+        'OEM Verified / حالة التوثيق': m.oemVerified ? 'VERIFIED / موثق' : (m.oemVerificationStatus || 'Pending'),
+        'OEM Certificate ID / رقم الشهادة': m.oemCertificateId || '',
+        'Serial Number / الرقم التسلسلي': m.serialNumber || '',
+        'Store Location / المستودع': m.store,
+        'Rack / الرف': m.rack,
+        'Shelf / الدرج': m.shelf,
+        'Station Code / رمز المحطة': m.station || 'ZFOD Warehouse',
+        'Electrical Rating / المواصفة الكهربائية': m.electricalRating || '',
+        'Signal Protocol / إشارة الخرج': m.outputProtocol || '',
+        'Operating Range / النطاق التشغيلي': m.measuringRange || '',
+        'IP Rating / درجة الحماية': m.ipRating || '',
+        'Compatible Equipment / المعدات المتوافقة': (m.compatibleEquipment || []).join(', '),
+        'Primary Alternative / البديل الرئيسي': m.alternatives?.primary || '',
+        'Secondary Alternative / البديل الثانوي': m.alternatives?.secondary || '',
+        'Engineering Notes / ملاحظات الفحص': m.engineeringNotes || m.notes || m.engineeringComments || ''
+      }));
+      const wsMaterials = XLSX.utils.json_to_sheet(materialsSheetData);
+      XLSX.utils.book_append_sheet(wb, wsMaterials, 'Materials Master Ledger');
+
+      // Sheet 2: Low Stock Alert Items (Sorted by Sequence)
+      const sortedLowStock = [...lowStockItems].sort((a, b) => {
+        const seqA = (a.sequence !== undefined && a.sequence !== null && !isNaN(Number(a.sequence))) ? Number(a.sequence) : Infinity;
+        const seqB = (b.sequence !== undefined && b.sequence !== null && !isNaN(Number(b.sequence))) ? Number(b.sequence) : Infinity;
+        return seqA - seqB;
+      });
+
+      const lowStockSheetData = sortedLowStock.map((m, idx) => ({
+        'Sequence / التسلسل': (m.sequence !== undefined && m.sequence !== null) ? m.sequence : (idx + 1),
+        'Part Number': m.partNumber,
+        'Description': m.description,
+        'Manufacturer': m.manufacturer,
+        'Model': m.model,
+        'Current Quantity': m.quantity,
+        'Min Stock Threshold': m.minStockLevel || 10,
+        'Deficit': Math.max(0, (m.minStockLevel || 10) - (m.quantity || 0)),
+        'Location': `${m.store} / Rack ${m.rack} / Shelf ${m.shelf}`
+      }));
+      const wsLowStock = XLSX.utils.json_to_sheet(lowStockSheetData);
+      XLSX.utils.book_append_sheet(wb, wsLowStock, 'Low Stock Alerts');
+
+      // Sheet 3: Equipment Register
+      const equipmentSheetData = equipment.map(eq => ({
+        'Tag Number': eq.tagNumber,
+        'Equipment Name': eq.name,
+        'Area / Unit': eq.area,
+        'Status': eq.status,
+        'Manufacturer': eq.manufacturer,
+        'Model': eq.model,
+        'Compatible Spares Count': (eq.compatibleSpares || []).length,
+        'Spares List': (eq.compatibleSpares || []).join(', ')
+      }));
+      const wsEquipment = XLSX.utils.json_to_sheet(equipmentSheetData);
+      XLSX.utils.book_append_sheet(wb, wsEquipment, 'Equipment Matrix');
+
+      // Sheet 4: Engineering Decisions
+      const decisionsSheetData = decisions.map(d => ({
+        'Part Number': d.partNumber,
+        'Decision Title': d.title,
+        'Type': d.decisionType,
+        'Approved By': d.approvedBy,
+        'Approval Date': d.approvalDate,
+        'Technical Rationale': d.rationale,
+        'Details': d.details
+      }));
+      const wsDecisions = XLSX.utils.json_to_sheet(decisionsSheetData);
+      XLSX.utils.book_append_sheet(wb, wsDecisions, 'Engineering Decisions');
+
+      // Sheet 5: Blacklist
+      const blacklistSheetData = blacklist.map(b => ({
+        'Part Number': b.partNumber,
+        'Serial Number': b.serialNumber,
+        'Supplier': b.supplier,
+        'Quarantine Reason': b.reason,
+        'Reported By': b.reporterName,
+        'Date': b.reportedDate
+      }));
+      const wsBlacklist = XLSX.utils.json_to_sheet(blacklistSheetData);
+      XLSX.utils.book_append_sheet(wb, wsBlacklist, 'Blacklist & Quarantine');
+
+      // Write file
+      const fileName = `EMIS_Engineering_Audit_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+
+      setExportSuccess(`Report exported successfully: ${fileName}`);
+      setTimeout(() => setExportSuccess(null), 4000);
+    } catch (e: any) {
+      console.error('Failed to export Excel report:', e);
+    }
+  };
+
+  return (
+    <div className="space-y-6" id="reports-view">
+      {/* Header */}
+      <div className="bg-white dark:bg-industrial-900 p-6 rounded-2xl border border-industrial-200 dark:border-industrial-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="p-2 rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20">
+              <BarChart3 className="h-6 w-6" />
+            </span>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-industrial-900 dark:text-white heading-display">
+                Engineering Reports & Analytics
+              </h1>
+              <p className="text-xs text-industrial-500 dark:text-industrial-400">
+                Comprehensive inventory breakdown, stock availability health, and audit export tools.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleExportExcel}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors cursor-pointer"
+          >
+            <Download className="h-4 w-4" />
+            <span>Export Full Audit (.xlsx)</span>
+          </button>
+        </div>
+      </div>
+
+      {exportSuccess && (
+        <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-300 rounded-xl text-xs flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          <span>{exportSuccess}</span>
+        </div>
+      )}
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="bg-white dark:bg-industrial-900 p-4 rounded-2xl border border-industrial-200 dark:border-industrial-800 shadow-xs">
+          <span className="text-[10px] font-mono uppercase text-industrial-400">Catalog SKUs</span>
+          <p className="text-xl font-bold font-mono text-industrial-900 dark:text-white mt-1">{materials.length}</p>
+          <span className="text-[10px] text-industrial-500">Unique Materials</span>
+        </div>
+
+        <div className="bg-white dark:bg-industrial-900 p-4 rounded-2xl border border-industrial-200 dark:border-industrial-800 shadow-xs">
+          <span className="text-[10px] font-mono uppercase text-industrial-400">Total Stock</span>
+          <p className="text-xl font-bold font-mono text-brand-600 dark:text-brand-400 mt-1">{totalStockUnits}</p>
+          <span className="text-[10px] text-industrial-500">Physical Units</span>
+        </div>
+
+        <div className="bg-white dark:bg-industrial-900 p-4 rounded-2xl border border-industrial-200 dark:border-industrial-800 shadow-xs">
+          <span className="text-[10px] font-mono uppercase text-amber-500">Low Stock Alert</span>
+          <p className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400 mt-1">{lowStockItems.length}</p>
+          <span className="text-[10px] text-amber-500/80">Need Restocking</span>
+        </div>
+
+        <div className="bg-white dark:bg-industrial-900 p-4 rounded-2xl border border-industrial-200 dark:border-industrial-800 shadow-xs">
+          <span className="text-[10px] font-mono uppercase text-industrial-400">Tagged Equipment</span>
+          <p className="text-xl font-bold font-mono text-indigo-600 dark:text-indigo-400 mt-1">{equipment.length}</p>
+          <span className="text-[10px] text-industrial-500">Plant Machinery</span>
+        </div>
+
+        <div className="bg-white dark:bg-industrial-900 p-4 rounded-2xl border border-industrial-200 dark:border-industrial-800 shadow-xs">
+          <span className="text-[10px] font-mono uppercase text-emerald-500">Decisions</span>
+          <p className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1">{decisions.length}</p>
+          <span className="text-[10px] text-emerald-500/80">Approved Records</span>
+        </div>
+
+        <div className="bg-white dark:bg-industrial-900 p-4 rounded-2xl border border-industrial-200 dark:border-industrial-800 shadow-xs">
+          <span className="text-[10px] font-mono uppercase text-rose-500">Quarantined</span>
+          <p className="text-xl font-bold font-mono text-rose-600 dark:text-rose-400 mt-1">{blacklist.length}</p>
+          <span className="text-[10px] text-rose-500/80">Blacklisted Items</span>
+        </div>
+      </div>
+
+      {/* Grid: Manufacturers Breakdown & Store Locations */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Manufacturers Table */}
+        <div className="bg-white dark:bg-industrial-900 p-5 rounded-2xl border border-industrial-200 dark:border-industrial-800 shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-sm text-industrial-900 dark:text-white flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-brand-600 dark:text-brand-400" />
+              <span>Materials by Manufacturer / Brand</span>
+            </h3>
+            <span className="text-xs text-industrial-500 font-mono">{sortedManufacturers.length} Brands</span>
+          </div>
+
+          <div className="max-h-72 overflow-y-auto divide-y divide-industrial-100 dark:divide-industrial-800 text-xs">
+            {sortedManufacturers.slice(0, 15).map(([mfg, data]) => {
+              const percentage = Math.round((data.count / materials.length) * 100);
+              return (
+                <div key={mfg} className="py-2.5 flex items-center justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-industrial-900 dark:text-white truncate">{mfg}</p>
+                    <div className="w-full bg-industrial-100 dark:bg-industrial-800 h-1.5 rounded-full mt-1.5 overflow-hidden">
+                      <div 
+                        className="bg-brand-500 h-full rounded-full" 
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="font-mono font-bold text-industrial-900 dark:text-white">{data.count} SKUs</span>
+                    <p className="text-[10px] text-industrial-500">{data.totalUnits} units ({percentage}%)</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Store Locations Table */}
+        <div className="bg-white dark:bg-industrial-900 p-5 rounded-2xl border border-industrial-200 dark:border-industrial-800 shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-sm text-industrial-900 dark:text-white flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <span>Inventory by Warehouse Location</span>
+            </h3>
+            <span className="text-xs text-industrial-500 font-mono">{Object.keys(storeCounts).length} Locations</span>
+          </div>
+
+          <div className="max-h-72 overflow-y-auto divide-y divide-industrial-100 dark:divide-industrial-800 text-xs">
+            {Object.entries(storeCounts).map(([store, data]) => {
+              const percentage = Math.round((data.count / materials.length) * 100);
+              return (
+                <div key={store} className="py-2.5 flex items-center justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-industrial-900 dark:text-white truncate">{store}</p>
+                    <div className="w-full bg-industrial-100 dark:bg-industrial-800 h-1.5 rounded-full mt-1.5 overflow-hidden">
+                      <div 
+                        className="bg-emerald-500 h-full rounded-full" 
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="font-mono font-bold text-industrial-900 dark:text-white">{data.count} SKUs</span>
+                    <p className="text-[10px] text-industrial-500">{data.totalUnits} units</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Critical Restock Alerts Table */}
+      <div className="bg-white dark:bg-industrial-900 rounded-2xl border border-industrial-200 dark:border-industrial-800 p-5 shadow-xs space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold text-sm text-amber-700 dark:text-amber-400 flex items-center gap-2">
+            <AlertTriangle className="h-4.5 w-4.5 text-amber-500" />
+            <span>Critical Low Stock Ledger ({lowStockItems.length} Items)</span>
+          </h3>
+          {onNavigateToTab && (
+            <button
+              onClick={() => onNavigateToTab('materials')}
+              className="text-xs text-brand-600 dark:text-brand-400 font-semibold hover:underline cursor-pointer"
+            >
+              Open Materials Ledger →
+            </button>
+          )}
+        </div>
+
+        {lowStockItems.length === 0 ? (
+          <div className="p-6 text-center text-xs text-emerald-600 dark:text-emerald-400">
+            ✓ All materials meet or exceed minimum stock safety thresholds.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-industrial-50 dark:bg-industrial-850/80 border-b border-industrial-200 dark:border-industrial-800 text-industrial-500 dark:text-industrial-400 font-mono uppercase text-[10px]">
+                <tr>
+                  <th className="px-4 py-2.5">Part Number</th>
+                  <th className="px-4 py-2.5">Description</th>
+                  <th className="px-4 py-2.5">Manufacturer</th>
+                  <th className="px-4 py-2.5">Current Qty</th>
+                  <th className="px-4 py-2.5">Min Safety Level</th>
+                  <th className="px-4 py-2.5">Location</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-industrial-100 dark:divide-industrial-800">
+                {lowStockItems.map(m => (
+                  <tr key={m.partNumber} className="hover:bg-amber-50/40 dark:hover:bg-amber-950/20">
+                    <td className="px-4 py-2.5 font-mono font-bold text-industrial-900 dark:text-white">
+                      {m.partNumber}
+                    </td>
+                    <td className="px-4 py-2.5 text-industrial-700 dark:text-industrial-300 max-w-xs truncate">
+                      {m.description}
+                    </td>
+                    <td className="px-4 py-2.5 text-industrial-600 dark:text-industrial-400">
+                      {m.manufacturer} {m.model}
+                    </td>
+                    <td className="px-4 py-2.5 font-mono font-bold text-amber-600 dark:text-amber-400">
+                      {m.quantity} {m.unit}
+                    </td>
+                    <td className="px-4 py-2.5 font-mono text-industrial-500">
+                      {m.minStockLevel || 10} {m.unit}
+                    </td>
+                    <td className="px-4 py-2.5 text-industrial-500">
+                      {m.store} (R:{m.rack}/S:{m.shelf})
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -469,23 +469,25 @@ export default function GoogleDriveView({ currentUser }: GoogleDriveViewProps) {
               <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-left space-y-2.5 max-w-md mx-auto">
                 <div className="flex items-center gap-2 text-red-850 font-bold text-xs">
                   <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
-                  <span>خطأ في الاتصال / Connection Issue</span>
+                  <span>خطأ في الاتصال / Connection Notice (APK / WebView)</span>
                 </div>
-                <p className="text-[10.5px] text-red-750 leading-relaxed font-sans font-sans">
-                  Google Sign-In popup was closed, blocked, or has restricted configurations. This is typical in sandbox iframe environments or when OAuth is not yet configured for your Google project.
+                <p className="text-[11px] text-red-800 leading-relaxed font-sans">
+                  <strong>سبب عدم الاتصال في تطبيق الـ APK:</strong> تمنع سياسة أمان جوجل (Google Secure Browser Policy) تسجيل الدخول عبر النوافذ المنبثقة (Popups) داخل متصفحات الـ WebView المدمجة في تطبيقات الأندرويد.
                 </p>
-                <button
-                  type="button"
-                  onClick={handleActivateSandbox}
-                  className="w-full mt-1 bg-indigo-650 hover:bg-indigo-700 text-white font-bold text-[10.5px] py-2 px-4 rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <HardDrive className="h-3.5 w-3.5" />
-                  الدخول الفوري عبر وضع المحاكاة / Connect Instantly via Local Sandbox
-                </button>
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={handleActivateSandbox}
+                    className="w-full bg-indigo-650 hover:bg-indigo-700 text-white font-bold text-xs py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
+                  >
+                    <HardDrive className="h-4 w-4" />
+                    <span>تفعيل الحاوية التخزينية الميدانية فوراً (Local Field Vault)</span>
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* Google Sign In Button - Complies with Google Sign-In Branding Guidelines */}
+            {/* Google Sign In & Local Vault Action Buttons */}
             <div className="flex flex-col items-center gap-3 pt-2">
               <button
                 onClick={handleSignIn}
@@ -507,19 +509,26 @@ export default function GoogleDriveView({ currentUser }: GoogleDriveViewProps) {
                 </div>
               </button>
 
-              {!signInError && (
-                <div className="text-[10px] text-industrial-400 font-sans flex items-center gap-1.5 mt-1">
-                  <span>أو</span>
-                  <button
-                    type="button"
-                    onClick={handleActivateSandbox}
-                    disabled={isLoading}
-                    className="text-indigo-650 hover:text-indigo-700 font-bold underline cursor-pointer"
-                  >
-                    التشغيل في وضع المحاكاة / Run in Simulated Sandbox Mode
-                  </button>
-                </div>
-              )}
+              {/* Instant Field Local Vault Activation Button */}
+              <button
+                type="button"
+                onClick={handleActivateSandbox}
+                disabled={isLoading}
+                className="w-full sm:w-auto max-w-xs flex items-center justify-center gap-2 bg-industrial-100 hover:bg-industrial-200 border border-industrial-300 text-industrial-800 font-bold text-xs py-2.5 px-5 rounded-lg transition-colors cursor-pointer"
+              >
+                <HardDrive className="h-4 w-4 text-indigo-600" />
+                <span>تشغيل الحاوية الميدانية / Field Storage Vault</span>
+              </button>
+            </div>
+
+            {/* Explanatory Note for APK and Mobile users */}
+            <div className="bg-industrial-50 border border-industrial-200 rounded-xl p-3.5 text-left text-[11px] text-industrial-600 leading-relaxed font-sans space-y-1 mt-3">
+              <p className="font-bold text-industrial-800 flex items-center gap-1.5">
+                <span>📱</span> ملاحظة لمستخدمي تطبيق الأندرويد (APK):
+              </p>
+              <p>
+                إذا كنت تستخدم نسخة الـ APK على الهاتف، يمكنك الضغط على <strong>"تشغيل الحاوية الميدانية"</strong> لحفظ وتصفح ورفع ملفات المواصفات والتقارير محلياً على الجهاز بدون إنترنت.
+              </p>
             </div>
           </motion.div>
         </div>

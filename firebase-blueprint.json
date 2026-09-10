@@ -91,6 +91,65 @@
         "timestamp": { "type": "string" }
       },
       "required": ["id", "userId", "userName", "action", "details", "timestamp"]
+    },
+    "MaterialInspectionRecord": {
+      "title": "MaterialInspectionRecord",
+      "description": "Inspection and matching outcome records for received instrumentation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "partNumber": { "type": "string" },
+        "result": { "type": "string" },
+        "reason": { "type": "string" },
+        "inspectionDate": { "type": "string" }
+      },
+      "required": ["id", "partNumber", "result", "reason", "inspectionDate"]
+    },
+    "StockMovement": {
+      "title": "StockMovement",
+      "description": "Ledger of inventory inward, outward, and transfer movements",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "partNumber": { "type": "string" },
+        "type": { "type": "string" },
+        "quantity": { "type": "integer" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "partNumber", "type", "quantity", "timestamp"]
+    },
+    "ExternalFile": {
+      "title": "ExternalFile",
+      "description": "Registry of imported external company inventory spreadsheets",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique source file identifier" },
+        "fileName": { "type": "string", "description": "Master Excel file name" },
+        "warehouseName": { "type": "string", "description": "External warehouse facility name" },
+        "importDate": { "type": "string" },
+        "lastUpdated": { "type": "string" },
+        "version": { "type": "integer" },
+        "recordCount": { "type": "integer" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "fileName", "warehouseName", "importDate", "version", "recordCount"]
+    },
+    "ExternalMaterial": {
+      "title": "ExternalMaterial",
+      "description": "External warehouse stock material with preserved original sequence and Excel row",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sourceFileId": { "type": "string" },
+        "sourceFileName": { "type": "string" },
+        "warehouseName": { "type": "string" },
+        "originalSequence": { "type": "string" },
+        "originalExcelRow": { "type": "integer" },
+        "partNumber": { "type": "string" },
+        "description": { "type": "string" },
+        "quantity": { "type": "integer" }
+      },
+      "required": ["id", "sourceFileId", "warehouseName", "originalSequence", "originalExcelRow", "partNumber"]
     }
   },
   "firestore": {
@@ -117,6 +176,22 @@
     "activities": {
       "schema": "ActivityLog",
       "description": "System security connection and modifications audit log"
+    },
+    "inspections": {
+      "schema": "MaterialInspectionRecord",
+      "description": "Quality assurance and specification matching receipts"
+    },
+    "stock_movements": {
+      "schema": "StockMovement",
+      "description": "Inventory movement transaction history"
+    },
+    "externalFiles": {
+      "schema": "ExternalFile",
+      "description": "Master index of imported external company inventory spreadsheets"
+    },
+    "externalMaterials": {
+      "schema": "ExternalMaterial",
+      "description": "Individual items in external company warehouses with original sequence preserved"
     }
   }
 }

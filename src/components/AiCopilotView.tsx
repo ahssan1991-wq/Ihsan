@@ -13,6 +13,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Material, User, ChatMessage } from '../types';
 import { dbService } from '../services/dbService';
+import { apiChatWithAi } from '../services/apiClient';
 
 interface AiCopilotViewProps {
   materials: Material[];
@@ -29,10 +30,12 @@ export default function AiCopilotView({ materials, currentUser }: AiCopilotViewP
 
   // Suggested Prompts
   const suggestedPrompts = [
+    { text: "اشرح لي نظام EMIS بالكامل ودورة حياة المواد من الاستلام إلى الصرف؟", label: "دليل ودورة عمل النظام" },
+    { text: "كيف أقوم بإجراء جرد دوري (Cycle Count) وتسوية الفروقات الميدانية؟", label: "دليل الجرد الميداني" },
+    { text: "كيف استخدم استوديو طباعة ملصقات الباركود والرفوف (Barcode Studio)؟", label: "دليل طباعة الباركود" },
+    { text: "كيف يعمل مركز أتمتة إعادة الطلب وإنشاء أوامر الشراء (Reorder Hub)؟", label: "دليل أتمتة المشتريات" },
     { text: "ما هي المواد المتوفرة في المخزن والتابعة لشركة Rosemount؟", label: "البحث عن Rosemount" },
-    { text: "هل يوجد بديل مطابق أو مقترح لأي جزء مقلد أو ناقص؟", label: "البدائل المقترحة" },
-    { text: "هل يمكنك تلخيص حالة المخزون الحالي وأي مواد أوشكت على النفاد؟", label: "ملخص مستويات المخزون" },
-    { text: "ما هو الجهد الكهربائي ومواصفات أجهزة القياس والتحكم المسجلة؟", label: "المواصفات الفنية للمستشعرات" }
+    { text: "هل يمكنك تلخيص حالة المخزون الحالي وأي مواد أوشكت على النفاد؟", label: "ملخص مستويات المخزون" }
   ];
 
   // Load chat history from localStorage on mount
@@ -81,38 +84,71 @@ export default function AiCopilotView({ materials, currentUser }: AiCopilotViewP
         return `${index + 1}. Part: ${m.partNumber} | Manufacturer: ${m.manufacturer} | Model: ${m.model} | Desc: ${m.description} | Qty: ${m.quantity} ${m.unit} | Location: Store ${m.store}, Rack ${m.rack}, Shelf ${m.shelf} | Notes: ${m.notes || 'None'}`;
       }).join('\n');
 
-      const systemInstruction = `You are a highly advanced, professional "Instrumentation Engineer Assistant" (مساعد هندسي متخصص في أجهزة القياس والتحكم الصناعي).
-You are the primary AI Co-Pilot of the EMIS (Engineering Material Management System) Release v0.2.
+      const systemInstruction = `You are the chief AI Engineering Assistant & System Tutor for EMIS (Engineering Material & Inspection System).
+You serve as both a Senior Instrumentation & Control Engineer and the complete Interactive System Guide/Bot for users.
 
-Here is the complete live ledger database of registered materials inside EMIS:
+=== LIVE REGISTERED MATERIALS IN EMIS ===
 ${materialsSummary}
 
-Your operational guidelines:
-1. You have complete knowledge of the database listed above. You must answer questions about any material, model, quantity, or location directly based on this data.
-2. If the user asks about an item that does NOT exist in the list, state politely that it is not registered in the EMIS ledger, but offer technical engineering advice about it if applicable.
-3. Always respond in the language used by the user (Arabic or English).
-4. Be precise, highly analytical, and technical. Speak with the authority of an experienced Instrumentation & Control Engineer.
-5. If the user asks for suggestions or compatibility, check if there are alternative tags or notes. When recommending substitutes or stating compatibility where the data is not fully complete, clearly note that this is an engineering estimation/AI assessment, and recommend consulting the official manufacturer datasheet or field manual.
-6. Avoid low-quality filler, branding fluff, or dramatic hype. Keep explanations clear, structured, and highly readable (use bullet points where appropriate).`;
+=== COMPREHENSIVE EMIS SYSTEM ARCHITECTURE & USER MANUAL ===
+You have full knowledge of all modules and operational workflows inside EMIS:
 
-      const response = await fetch('/api/gemini/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          message: userText,
-          history: updatedHistory.slice(0, -1), // Send history up to now
-          systemInstruction: systemInstruction
-        })
-      });
+1. COMMAND CENTER & DASHBOARD:
+- Provides real-time overview of inventory metrics: total parts, critical shortages, pending inspections, active sites, and recent transaction history.
+- Quick Operational Commands Bar for 1-click navigation to core tools.
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || "Failed to communicate with AI Co-Pilot server");
-      }
+2. MATERIALS LEDGER & PASSPORT:
+- Complete catalog of parts with Part Numbers (PN), Serial Numbers (SN), Manufacturer, Model, Quantity, and Storage Coordinates (Store, Rack, Shelf).
+- Digital Material Passport: Generates verifiable QR code passport allowing technicians to scan and inspect material specs in the field or share a secure web link.
 
-      const resData = await response.json();
+3. BARCODE & SHELF LABEL STUDIO (Barcode Studio):
+- Generates high-density Code 128 (Subset B) industrial barcodes and 2D QR codes.
+- Supports direct thermal printing for Zebra, Dymo, TSC, and A4 multi-label sheets.
+- Prints Part Number, Description, Manufacturer, and exact Warehouse/Shelf location coordinates.
+
+4. CYCLE COUNTING & PHYSICAL AUDIT (Cycle Count):
+- Manages field inventory counting sessions (Full audit or filtered by Warehouse/Rack).
+- Barcode scanner assistance for rapid physical counting.
+- Auto-calculates count variances and discrepancy percentages.
+- Generates official signed Inventory Reconciliation Certificates with 1-click ledger balance update.
+
+5. AUTOMATED REORDER & REQUISITIONS (Reorder Hub):
+- Real-time detection of items below Safety Stock / Min Level or zero balance.
+- Computes Economic Order Quantity (EOQ) and suggested order amounts.
+- 1-click generation of formal Purchase Requisitions (PR) with export and print preview.
+
+6. ENTERPRISE OPERATIONS & MOVEMENTS:
+- Receiving (GRN): Goods receipt against POs with batch numbers and vendor tags.
+- Issuance (GIS): Dispatches parts to Maintenance Work Orders (WO) or plant tags.
+- Internal Transfers: Multi-warehouse site-to-site transfer tracking.
+- Stock Ledger: Immutable chronological movement log of all inputs and outputs.
+
+7. MRF, PO, WO & QUALITY INSPECTION:
+- Incoming QA/QC inspection workflow with Pass/Fail/Deviation sign-off.
+- Tracks Mill Test Reports (MTR), Certificates of Conformity (CoC), and material test certificates.
+
+8. TRACEABILITY & VERIFICATION:
+- End-to-end lifecycle audit trail linking materials to equipment tags and drawings.
+
+9. EQUIPMENT REGISTER:
+- Plant machinery and instrument tag register (Transmitters, Valves, Pumps, Analyzers).
+
+10. DATA QUALITY & RECYCLE BIN:
+- Audits records for missing specifications or duplicate part numbers.
+- Two-stage soft deletion with instantaneous restore protection.
+
+OPERATIONAL BEHAVIOR:
+- Respond in the language of the user (Arabic or English).
+- When asked how to perform an action or workflow in the software, provide clear, numbered, step-by-step instructions.
+- When asked about registered parts, query your live materials ledger accurately.
+- Maintain a helpful, respectful, and authoritative engineering tone.`;
+
+      const resData = await apiChatWithAi(
+        userText,
+        updatedHistory.slice(0, -1),
+        systemInstruction,
+        materials
+      );
       
       const assistantMsg: ChatMessage = {
         role: 'model',

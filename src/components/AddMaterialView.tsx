@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { 
   PlusCircle, 
@@ -20,19 +20,30 @@ import {
   Lock,
   X,
   RefreshCw,
-  Check
+  Check,
+  Hash,
+  Sparkles
 } from 'lucide-react';
-import { Material, User, UserRole, MaterialSerialNumber, MaterialHistoryEvent } from '../types';
+import { Material, User, UserRole, MaterialSerialNumber, MaterialHistoryEvent, MaterialTransactionEvent } from '../types';
 import { dbService } from '../services/dbService';
+import { apiAutoCompleteMaterial } from '../services/apiClient';
 import NameplateScanner from './NameplateScanner';
 
 interface AddMaterialViewProps {
   materials: Material[];
   currentUser: User;
   onAddMaterialSuccess: () => void;
+  initialPrefillData?: Record<string, string | null> | null;
+  onClearPrefill?: () => void;
 }
 
-export default function AddMaterialView({ materials, currentUser, onAddMaterialSuccess }: AddMaterialViewProps) {
+export default function AddMaterialView({ 
+  materials, 
+  currentUser, 
+  onAddMaterialSuccess,
+  initialPrefillData,
+  onClearPrefill
+}: AddMaterialViewProps) {
   // Form State
   const [partNumber, setPartNumber] = useState('');
   const [description, setDescription] = useState('');
@@ -46,6 +57,62 @@ export default function AddMaterialView({ materials, currentUser, onAddMaterialS
   const [shelf, setShelf] = useState('');
   const [notes, setNotes] = useState('');
   const [minStockLevel, setMinStockLevel] = useState<number>(10);
+  const [prefillAlert, setPrefillAlert] = useState<string | null>(null);
+
+  // Master Warehouses from Port 10 Master Data
+  const masterWarehouses = useMemo(() => dbService.getWarehouses(), []);
+
+  // Apply initial prefill data if passed from scanner
+  useEffect(() => {
+    if (initialPrefillData) {
+      if (initialPrefillData.partNumber) setPartNumber(initialPrefillData.partNumber);
+      if (initialPrefillData.manufacturer) setManufacturer(initialPrefillData.manufacturer);
+      if (initialPrefillData.model) setModel(initialPrefillData.model);
+      if (initialPrefillData.serialNumber) setSerialNumber(initialPrefillData.serialNumber);
+      if (initialPrefillData.description) setDescription(initialPrefillData.description);
+      else if (initialPrefillData.manufacturer && initialPrefillData.model) {
+        setDescription(`${initialPrefillData.manufacturer} ${initialPrefillData.model} Industrial Component`);
+      }
+      if (initialPrefillData.store) setStore(initialPrefillData.store);
+      if (initialPrefillData.rack) setRack(initialPrefillData.rack);
+      if (initialPrefillData.shelf) setShelf(initialPrefillData.shelf);
+      
+      let extraNotes = '';
+      if (initialPrefillData.voltage) extraNotes += `Voltage: ${initialPrefillData.voltage}\n`;
+      if (initialPrefillData.current) extraNotes += `Current: ${initialPrefillData.current}\n`;
+      if (initialPrefillData.power) extraNotes += `Power: ${initialPrefillData.power}\n`;
+      if (initialPrefillData.barcode) extraNotes += `Barcode: ${initialPrefillData.barcode}\n`;
+      if (initialPrefillData.qrCode) extraNotes += `QR: ${initialPrefillData.qrCode}\n`;
+
+      if (extraNotes) {
+        setNotes(prev => prev ? `${prev}\n\n-- Scanned Data --\n${extraNotes}` : `-- Scanned Data --\n${extraNotes}`);
+      }
+
+      setPrefillAlert(`✨ تم تعبئة بيانات الصنف الجديد تلقائياً من المسح الضوئي (Part: ${initialPrefillData.partNumber || 'N/A'}) وتطبيق التسلسل المنظم.`);
+      
+      if (onClearPrefill) {
+        onClearPrefill();
+      }
+    }
+  }, [initialPrefillData]);
+
+  // Sequential Order State (Auto & Manual sequence numbering)
+  const nextSuggestedSequence = useMemo(() => {
+    const existingSeqs = materials
+      .map(m => m.sequence)
+      .filter((s): s is number => typeof s === 'number' && !isNaN(s) && s > 0);
+    return existingSeqs.length > 0 ? Math.max(...existingSeqs) + 1 : 1;
+  }, [materials]);
+
+  const [sequence, setSequence] = useState<number | ''>(nextSuggestedSequence);
+  const [isAutoSequence, setIsAutoSequence] = useState<boolean>(true);
+
+  // Keep sequence synced when auto-mode is enabled and materials update
+  useEffect(() => {
+    if (isAutoSequence) {
+      setSequence(nextSuggestedSequence);
+    }
+  }, [nextSuggestedSequence, isAutoSequence]);
 
   // Duplicate Dialog States
   const [existingMatchMaterial, setExistingMatchMaterial] = useState<Material | null>(null);
@@ -112,6 +179,57 @@ export default function AddMaterialView({ materials, currentUser, onAddMaterialS
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [collisionPart, setCollisionPart] = useState<string | null>(null);
+  const [isAutoEnriching, setIsAutoEnriching] = useState(false);
+  const [aiEnrichSuccess, setAiEnrichSuccess] = useState<string | null>(null);
+
+  // Gemini AI Auto-Enrichment handler
+  const handleAiEnrich = async () => {
+    if (!partNumber.trim() && !model.trim() && !description.trim() && !manufacturer.trim()) {
+      setError('يرجى كتابة رقم القطعة (Part Number) أو اسم المصنع / الطراز أولاً ليقوم الذكاء الاصطناعي بالتعرف عليه وإكمال البيانات.');
+      return;
+    }
+
+    setError(null);
+    setIsAutoEnriching(true);
+    setAiEnrichSuccess(null);
+
+    try {
+      const enriched = await apiAutoCompleteMaterial({
+        partNumber: partNumber.trim(),
+        manufacturer: manufacturer.trim(),
+        model: model.trim(),
+        description: description.trim(),
+        scannedText: notes
+      });
+
+      if (enriched.description) setDescription(enriched.description);
+      if (enriched.manufacturer) setManufacturer(enriched.manufacturer);
+      if (enriched.model && (!model || model === 'N/A')) setModel(enriched.model);
+      if (enriched.unit) setUnit(enriched.unit);
+      if (enriched.minStockLevel && enriched.minStockLevel > 0) setMinStockLevel(enriched.minStockLevel);
+      if (enriched.suggestedStore) setStore(enriched.suggestedStore);
+
+      // Build structured engineering notes
+      const specBlock = `\n--- ⚡ المواصفات الفنية المعتمدة (Gemini Engineering Specs) ---\n` +
+        `• الوصف الفني: ${enriched.technicalSummary || 'N/A'}\n` +
+        `• الجهد التشغيلي: ${enriched.voltage || 'N/A'}\n` +
+        `• التيار: ${enriched.current || 'N/A'}\n` +
+        `• القدرة: ${enriched.power || 'N/A'}\n` +
+        `• إشارة الإخراج: ${enriched.signalOutput || 'N/A'}\n` +
+        `• النطاق التشغيلي: ${enriched.operatingRange || 'N/A'}\n` +
+        `• درجة الحماية: ${enriched.ipRating || 'N/A'}\n` +
+        `• شهادات المناطق الخطرة: ${enriched.hazardousCertification || 'N/A'}\n` +
+        `• تعليمات الأمان بالمستودع: ${enriched.safetyNotes || 'N/A'}\n`;
+
+      setNotes(prev => prev ? `${prev}\n${specBlock}` : specBlock.trim());
+      setAiEnrichSuccess(`✨ تم استخراج وإكمال المواصفات الفنية بالذكاء الاصطناعي بنجاح (${enriched.manufacturer} ${enriched.model || ''})`);
+    } catch (err: any) {
+      console.error("AI Enrich Error:", err);
+      setError('تعذر إكمال البيانات عبر الذكاء الاصطناعي حالياً. يرجى التحقق من الاتصال بالشبكة.');
+    } finally {
+      setIsAutoEnriching(false);
+    }
+  };
 
   // Checks in real-time for Part Number collision
   const handlePartNumberChange = (val: string) => {
@@ -191,7 +309,12 @@ export default function AddMaterialView({ materials, currentUser, onAddMaterialS
       calibrationHistory: []
     }] : [];
 
+    const finalSeq = isAutoSequence 
+      ? nextSuggestedSequence 
+      : (typeof sequence === 'number' && sequence > 0 ? sequence : nextSuggestedSequence);
+
     const payload = {
+      sequence: finalSeq,
       partNumber: partNumber.trim(),
       description: description.trim(),
       manufacturer: manufacturer.trim(),
@@ -215,6 +338,29 @@ export default function AddMaterialView({ materials, currentUser, onAddMaterialS
 
     const result = dbService.addMaterial(payload as any, currentUser);
     if (result.success) {
+      // Port 10: Dispatch Transaction Alert Email & Audit
+      const eventPayload: MaterialTransactionEvent = {
+        eventId: `evt-mat-create-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        transactionType: 'NEW_MATERIAL',
+        materialId: payload.partNumber,
+        partNumber: payload.partNumber,
+        description: payload.description,
+        manufacturer: payload.manufacturer,
+        model: payload.model,
+        warehouse: payload.store,
+        site: currentUser.site || 'NDGS',
+        quantityAdded: payload.quantity,
+        previousQuantity: 0,
+        currentQuantity: payload.quantity,
+        unit: payload.unit,
+        user: currentUser.name,
+        userId: currentUser.id,
+        userRole: currentUser.role,
+        notes: payload.notes || 'Created via Add Material form'
+      };
+      dbService.sendMaterialAlertEmail(eventPayload);
+
       setSuccess(true);
       // Reset form
       setPartNumber('');
@@ -229,6 +375,8 @@ export default function AddMaterialView({ materials, currentUser, onAddMaterialS
       setNotes('');
       setMinStockLevel(10);
       setCollisionPart(null);
+      setIsAutoSequence(true);
+      setSequence(nextSuggestedSequence + 1);
       setOemVerificationStatus('pending');
       setOemCertificateId('');
       setOemVerificationNotes('');
@@ -407,6 +555,29 @@ export default function AddMaterialView({ materials, currentUser, onAddMaterialS
     // Persist changes
     const result = dbService.updateMaterial(updatedMaterial, currentUser);
     if (result.success) {
+      // Port 10: Dispatch Transaction Alert Email for existing material updates
+      const eventPayload: MaterialTransactionEvent = {
+        eventId: `evt-mat-update-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        transactionType: 'EXISTING_MATERIAL_QUANTITY_CHANGED',
+        materialId: updatedMaterial.partNumber,
+        partNumber: updatedMaterial.partNumber,
+        description: updatedMaterial.description,
+        manufacturer: updatedMaterial.manufacturer,
+        model: updatedMaterial.model,
+        warehouse: updatedMaterial.store,
+        site: currentUser.site || 'NDGS',
+        quantityAdded: dupQtyAdd || quantity || 0,
+        previousQuantity: existingMatchMaterial.quantity || 0,
+        currentQuantity: updatedMaterial.quantity || 0,
+        unit: updatedMaterial.unit,
+        user: currentUser.name,
+        userId: currentUser.id,
+        userRole: currentUser.role,
+        notes: resolveDetails
+      };
+      dbService.sendMaterialAlertEmail(eventPayload);
+
       setSuccess(true);
       setShowDuplicateDialog(false);
       setTimeout(() => {
@@ -451,6 +622,30 @@ export default function AddMaterialView({ materials, currentUser, onAddMaterialS
         </p>
       </div>
 
+      {prefillAlert && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-4 bg-brand-50 border border-brand-300 text-brand-900 text-xs rounded-xl flex items-center justify-between gap-3 shadow-xs"
+          id="add-material-prefill-alert"
+        >
+          <div className="flex items-center gap-2.5">
+            <Sparkles className="h-5 w-5 text-brand-600 shrink-0" />
+            <div>
+              <p className="font-bold">{prefillAlert}</p>
+              <p className="text-[11px] text-brand-700 mt-0.5">تم تخصيص التسلسل المنظم التالي (#{sequence}) تلقائياً. يمكنك مراجعة البيانات والضغط على حفظ.</p>
+            </div>
+          </div>
+          <button 
+            type="button" 
+            onClick={() => setPrefillAlert(null)}
+            className="text-brand-600 hover:text-brand-900 p-1 rounded-lg hover:bg-brand-100 cursor-pointer"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </motion.div>
+      )}
+
       {success && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -488,10 +683,177 @@ export default function AddMaterialView({ materials, currentUser, onAddMaterialS
         <div className="p-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h3 className="text-xs font-bold text-industrial-500 uppercase tracking-widest font-mono flex items-center gap-1.5">
-              <Tag className="h-3.5 w-3.5 text-brand-600" /> Section 1: Unique Identifiers
+              <Tag className="h-3.5 w-3.5 text-brand-600" /> Section 1: Unique Identifiers / المعرفات الفريدة
             </h3>
-            <NameplateScanner onScanSuccess={handleScanSuccess} />
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={handleAiEnrich}
+                disabled={isAutoEnriching}
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                title="إكمال الوصف الفني والمواصفات الكهربائية والمصنع تلقائياً باستخدام Gemini AI"
+              >
+                {isAutoEnriching ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <span>جاري تحليل وإكمال البيانات بالذكاء الاصطناعي...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>إكمال وتوليد المواصفات بالذكاء الاصطناعي (AI Auto-Enrich)</span>
+                  </>
+                )}
+              </button>
+              <NameplateScanner 
+                materialsList={materials}
+                onScanSuccess={handleScanSuccess} 
+                onEditMaterial={(mat) => {
+                  setExistingMatchMaterial(mat);
+                  setDupStore(mat.store);
+                  setDupRack(mat.rack || '');
+                  setDupShelf(mat.shelf || '');
+                  setShowDuplicateDialog(true);
+                }}
+              />
+            </div>
           </div>
+
+          {aiEnrichSuccess && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3.5 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 text-purple-950 text-xs rounded-xl flex items-center justify-between gap-3 shadow-2xs"
+            >
+              <div className="flex items-center gap-2.5">
+                <Sparkles className="h-4.5 w-4.5 text-purple-600 shrink-0" />
+                <span className="font-semibold">{aiEnrichSuccess}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAiEnrichSuccess(null)}
+                className="text-purple-700 hover:text-purple-900 p-1 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </motion.div>
+          )}
+
+          {/* Automatic Sequence Allocation Banner / Field */}
+          <div className="bg-brand-50/70 border border-brand-200/90 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-brand-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+                <Hash className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold text-industrial-900 font-mono">
+                    تسلسل المادة المنظم / Material Sequence
+                  </span>
+                  {isAutoSequence ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs">
+                      <Sparkles className="w-3 h-3 text-emerald-600" /> تسلسل تلقائي منتظم (التالي: #{nextSuggestedSequence})
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                      تخصيص يدوي
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-industrial-600 mt-0.5">
+                  يتم اقتراح وتطبيق رقم التسلسل المنظم تلقائياً لكافة المواد الجديدة غير المسجلة.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-start sm:self-center">
+              <div className="relative">
+                <input
+                  type="number"
+                  min="1"
+                  value={isAutoSequence ? nextSuggestedSequence : sequence}
+                  disabled={isAutoSequence}
+                  onChange={(e) => setSequence(parseInt(e.target.value) || '')}
+                  className={`w-28 text-center font-mono font-bold text-sm px-3 py-2 rounded-xl border transition-all ${
+                    isAutoSequence
+                      ? 'bg-brand-100/70 border-brand-300 text-brand-900 cursor-not-allowed'
+                      : 'bg-white border-industrial-300 text-industrial-900 focus:ring-2 focus:ring-brand-500 focus:outline-none shadow-2xs'
+                  }`}
+                  placeholder="Seq #"
+                />
+                <span className="absolute left-2.5 top-2 text-xs font-mono text-industrial-400 font-bold">#</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (isAutoSequence) {
+                    setIsAutoSequence(false);
+                    setSequence(nextSuggestedSequence);
+                  } else {
+                    setIsAutoSequence(true);
+                    setSequence(nextSuggestedSequence);
+                  }
+                }}
+                className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  isAutoSequence
+                    ? 'bg-white border border-brand-300 text-brand-700 hover:bg-brand-50 shadow-2xs'
+                    : 'bg-brand-600 text-white hover:bg-brand-700 shadow-2xs'
+                }`}
+              >
+                {isAutoSequence ? 'تعديل يدوي' : 'تطبيق تلقائي'}
+              </button>
+            </div>
+          </div>
+
+          {/* Real-time Collision & Match Banner */}
+          {(() => {
+            const collisionMatch = collisionPart ? materials.find(m => m.partNumber.trim().toUpperCase() === collisionPart.toUpperCase()) : null;
+            if (!collisionMatch) return null;
+
+            return (
+              <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 text-industrial-900 shadow-xs" id="collision-match-banner">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="bg-amber-200 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded font-mono uppercase">
+                      ⚠️ تنبيه: مادة مسجلة مسبقاً في المخزون
+                    </span>
+                    {collisionMatch.sequence !== undefined && (
+                      <span className="text-xs font-bold font-mono text-industrial-700">
+                        تسلسل #{collisionMatch.sequence}
+                      </span>
+                    )}
+                  </div>
+                  <h4 className="font-bold text-sm text-industrial-900">
+                    {collisionMatch.partNumber} — {collisionMatch.description}
+                  </h4>
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-industrial-600 font-sans mt-1">
+                    <span>المصنع: <strong>{collisionMatch.manufacturer} ({collisionMatch.model})</strong></span>
+                    <span>•</span>
+                    <span>الرصيد المتوفر: <strong className="font-mono text-emerald-700">{collisionMatch.quantity} {collisionMatch.unit}</strong></span>
+                    <span>•</span>
+                    <span>الموقع: <strong>{collisionMatch.store} (ستاند {collisionMatch.rack || 'N/A'} - رف {collisionMatch.shelf || 'N/A'})</strong></span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExistingMatchMaterial(collisionMatch);
+                      setDupStore(collisionMatch.store);
+                      setDupRack(collisionMatch.rack || '');
+                      setDupShelf(collisionMatch.shelf || '');
+                      setShowDuplicateDialog(true);
+                    }}
+                    className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    <span>تعديل المادة أو إضافة رصيد / Edit & Restock</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Part Number */}
@@ -519,11 +881,11 @@ export default function AddMaterialView({ materials, currentUser, onAddMaterialS
               {/* Collision warning info */}
               {collisionPart && (
                 <p className="text-[10px] text-red-600 mt-1.5 font-semibold font-mono flex items-center gap-1">
-                  <AlertTriangle className="h-3 w-3 shrink-0" /> Duplicate SKU detected. This Part Number already exists in the system.
+                  <AlertTriangle className="h-3 w-3 shrink-0" /> صنف مكرر: هذا الرقم مسجل بالفعل في المستودع. اضغط على زر التعديل أعلاه لإضافة رصيد أو تعديل البيانات.
                 </p>
               )}
               <p className="text-[10px] text-industrial-450 mt-1.5">
-                Unique Primary Key. Case-insensitive index. No duplicates allowed.
+                المعرف الفريد الأساسي للمادة (Part Number / Tag Code).
               </p>
             </div>
 
@@ -676,12 +1038,20 @@ export default function AddMaterialView({ materials, currentUser, onAddMaterialS
                 onChange={(e) => setStore(e.target.value)}
                 className="w-full bg-industrial-50 border border-industrial-200 text-xs px-3.5 py-2.5 rounded-xl text-industrial-700 focus:outline-none focus:ring-1.5 focus:ring-brand-500"
               >
-                <option value="Electronics Lab (Lab A)">Electronics Lab (Lab A)</option>
-                <option value="Mechanical Workshop">Mechanical Workshop</option>
-                <option value="Automation Depot">Automation Depot</option>
-                <option value="Pneumatics Stockroom">Pneumatics Stockroom</option>
-                <option value="Raw Materials Yard">Raw Materials Yard</option>
-                <option value="R&D Safety Locker">R&D Safety Locker</option>
+                {masterWarehouses.length > 0 ? (
+                  masterWarehouses.map(w => (
+                    <option key={w.id} value={w.name}>{w.name} ({w.siteName || 'NDGS'})</option>
+                  ))
+                ) : (
+                  <>
+                    <option value="Electronics Lab (Lab A)">Electronics Lab (Lab A)</option>
+                    <option value="Mechanical Workshop">Mechanical Workshop</option>
+                    <option value="Automation Depot">Automation Depot</option>
+                    <option value="Pneumatics Stockroom">Pneumatics Stockroom</option>
+                    <option value="Raw Materials Yard">Raw Materials Yard</option>
+                    <option value="R&D Safety Locker">R&D Safety Locker</option>
+                  </>
+                )}
               </select>
             </div>
 

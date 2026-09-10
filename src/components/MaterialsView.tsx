@@ -44,25 +44,35 @@ import {
   ShieldCheck,
   ShieldAlert,
   MessageSquare,
-  Send
+  Send,
+  Camera
 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import NameplateScanner from './NameplateScanner';
 import MaterialContextualChat from './MaterialContextualChat';
 import { Material, User, UserRole, Equipment, MaterialHistoryEvent, MaterialDocument } from '../types';
 import { dbService } from '../services/dbService';
+import { getBaseApiUrl, apiChatWithAi, apiAutoCompleteMaterial } from '../services/apiClient';
 import ExcelImportModal from './ExcelImportModal';
 import * as XLSX from 'xlsx';
 import * as googleDrive from '../services/googleDriveService';
+import { 
+  executePrint, 
+  openPrintPreview, 
+  generateAssetTagHtml, 
+  generateVoucherPrintHtml, 
+  openDocumentInNewTab,
+  downloadDocument
+} from '../utils/printManager';
 
 interface MaterialsViewProps {
-  materials: Material[];
+  materials?: Material[];
   equipment?: Equipment[];
   currentUser: User;
   onUpdateMaterial: (material: Material, oldPartNumber?: string) => void;
   onDeleteMaterial: (partNumber: string) => void;
   initialSearchQuery?: string;
-  onNavigateToTab: (tabId: string, query?: string) => void;
+  onNavigateToTab: (tabId: string, query?: string, prefillData?: Record<string, string | null>) => void;
   onImportSuccess?: () => void;
 }
 
@@ -70,7 +80,7 @@ type SortField = 'sequence' | 'partNumber' | 'quantity' | 'manufacturer' | 'stor
 type SortOrder = 'asc' | 'desc';
 
 export default function MaterialsView({ 
-  materials, 
+  materials: rawMaterials = [], 
   equipment = [],
   currentUser, 
   onUpdateMaterial, 
@@ -79,6 +89,7 @@ export default function MaterialsView({
   onNavigateToTab,
   onImportSuccess = () => {}
 }: MaterialsViewProps) {
+  const materials = Array.isArray(rawMaterials) && rawMaterials.length > 0 ? rawMaterials : (dbService.getMaterials() || []);
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery === 'lowstock' ? '' : initialSearchQuery);
   const [filterStore, setFilterStore] = useState('All');
   const [filterStockStatus, setFilterStockStatus] = useState(initialSearchQuery === 'lowstock' ? 'Low' : 'All');
@@ -102,6 +113,7 @@ export default function MaterialsView({
   const [editRack, setEditRack] = useState('');
   const [editShelf, setEditShelf] = useState('');
   const [editMinStock, setEditMinStock] = useState(10);
+  const [isAutoEnrichingCore, setIsAutoEnrichingCore] = useState(false);
 
   // Advanced Engineering Tabs States
   const [activeModalTab, setActiveModalTab] = useState<'specs' | 'compatibility' | 'documents' | 'timeline' | 'ask-ai' | 'serials' | 'compare-datasheets' | 'compare-coc' | 'knowledge-assistant' | 'alternative-parts'>('specs');
@@ -232,11 +244,23 @@ export default function MaterialsView({
     onUpdateMaterial(updated);
     setSelectedMaterial(updated);
 
-    setTimeout(() => {
-      window.print();
-    }, 250);
+    const voucherHtml = generateVoucherPrintHtml({
+      voucherId,
+      type: showVoucherModal,
+      material: updated,
+      quantity: voucherQty,
+      recipient: voucherRecipient,
+      department: voucherStation,
+      woRef: voucherWoRef,
+      mrfRef: voucherMrfRef,
+      notes: voucherNotes,
+      userName: currentUser.name,
+      date: new Date().toLocaleString('ar-EG'),
+    });
 
-    triggerLocalToast('success', `Voucher ${voucherId} confirmed and printed successfully.`);
+    executePrint(`سند_${showVoucherModal === 'issue' ? 'صرف' : 'إرجاع'}_${voucherId}`, voucherHtml, `${voucherId}.html`);
+
+    triggerLocalToast('success', `Voucher ${voucherId} confirmed and prepared for printing.`);
     setShowVoucherModal(null);
   };
 
@@ -282,18 +306,18 @@ export default function MaterialsView({
   };
 
   const handlePrintReport = (title: string, htmlContent: string) => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      triggerLocalToast('error', 'Popup blocked. Please allow popups to print/export reports.');
-      return;
-    }
-    
-    printWindow.document.write(`
+    const reportHtml = `
+      <!DOCTYPE html>
       <html>
         <head>
+          <meta charset="utf-8">
           <title>${title}</title>
           <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 2.5rem; color: #1e293b; line-height: 1.5; }
+            @media print {
+              @page { margin: 12mm; }
+              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            }
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 2rem; color: #1e293b; line-height: 1.5; background: #fff; }
             .bg-gray-100 { background-color: #f1f5f9; }
             .bg-blue-50 { background-color: #eff6ff; }
             .bg-green-50 { background-color: #f0fdf4; }
@@ -303,7 +327,7 @@ export default function MaterialsView({
             .p-4 { padding: 1rem; }
             .p-5 { padding: 1.25rem; }
             .p-6 { padding: 1.5rem; }
-            .rounded { rounded-radius: 0.25rem; }
+            .rounded { border-radius: 0.25rem; }
             .rounded-lg { border-radius: 0.5rem; }
             .mb-6 { margin-bottom: 1.5rem; }
             .mt-2 { margin-top: 0.5rem; }
@@ -343,11 +367,11 @@ export default function MaterialsView({
             th { background-color: #f1f5f9; font-weight: bold; }
           </style>
         </head>
-        <body onload="window.print();">
-          <div style="max-w: 800px; margin: 0 auto;">
+        <body>
+          <div style="max-width: 850px; margin: 0 auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #334155; padding-bottom: 10px; margin-bottom: 20px;">
               <div>
-                <h1 style="font-size: 24px; font-weight: 900; margin: 0; color: #0f172a;">EMIS TECHNICAL INTELLIGENCE</h1>
+                <h1 style="font-size: 22px; font-weight: 900; margin: 0; color: #0f172a;">EMIS TECHNICAL INTELLIGENCE</h1>
                 <p style="font-size: 10px; font-family: monospace; text-transform: uppercase; margin: 2px 0 0 0; color: #64748b;">Automated Engineering Report — Powered by Gemini AI</p>
               </div>
               <div style="text-align: right; font-size: 11px; font-family: monospace; color: #64748b;">
@@ -360,50 +384,101 @@ export default function MaterialsView({
               CONFIDENTIAL & PROPRIETARY — INTENDED SOLELY FOR REGISTERED FIELD ENGINEERS
             </div>
           </div>
+          <script>
+            window.onload = function() {
+              setTimeout(function() { try { window.print(); } catch(e){} }, 400);
+            };
+          </script>
         </body>
       </html>
-    `);
-    printWindow.document.close();
+    `;
+    executePrint(title, reportHtml, `${title}.html`);
   };
 
   const getExportData = () => {
-    // Define Headers
+    // Define comprehensive headers for inspection, physical matching, and warehouse audit
     const headers = [
       'Material Sequence / التسلسل المادي',
       'Part Number / رقم القطعة',
-      'Description / الوصف',
+      'Material Code / كود المادة',
+      'Description / الوصف الفني والتفصيلي',
       'Manufacturer / الشركة المصنعة',
-      'Model / Type / الموديل والنوع',
+      'Model & Type / الموديل والنوع والطراز',
       'In-Stock Quantity / الكمية المتاحة',
       'Unit / الوحدة',
+      'Minimum Threshold level / الحد الأدنى للأمان',
       'Storage Facility / المستودع والمرفق',
       'Rack Designation / الرف',
       'Shelf Coordinates / الخانة والدرج',
       'Station Code / رمز المحطة',
-      'Internal ID / المعرف الداخلي للربط',
-      'Minimum Threshold level / الحد الأدنى للأمان',
-      'Engineering Comments / Notes / ملاحظات هندسية'
+      'OEM Verified / حالة التحقق من الأصالة',
+      'OEM Status / حالة التوثيق',
+      'OEM Certificate ID / رقم شهادة المنشأ',
+      'Serial Number / الرقم التسلسلي',
+      'Electrical / Voltage Rating / الجهد والكهرباء',
+      'Signal Output / إشارة الخرج والبروتوكول',
+      'Measuring / Operating Range / النطاق والمدى',
+      'IP Rating / درجة الحماية',
+      'Hazardous Certifications / شهادات الأمان والمناطق الخطرة',
+      'Compatible Equipment / المعدات المتوافقة المرتبطة',
+      'Alternative Primary / البديل الهندسي الرئيسي',
+      'Alternative Secondary / البديل الثانوي',
+      'Alternative Notes / ملاحظات التوافق والبدائل',
+      'Internal ID / المعرف الداخلي',
+      'Engineering Comments & Inspection Notes / ملاحظات الفحص والمطابقة الهندسية'
     ];
 
-    // Map each material row preserving order and sequence
-    const rows = materials.map(m => [
-      m.sequence?.toString() || '',
-      m.partNumber || '',
-      m.description || '',
-      m.manufacturer || '',
-      m.model || '',
-      m.quantity?.toString() || '0',
-      m.unit || '',
-      m.store || '',
-      m.rack || '',
-      m.shelf || '',
-      m.station || 'ZFOD Warehouse',
-      m.internalId || '',
-      m.minStockLevel?.toString() || '10',
-      m.engineeringNotes || m.notes || ''
-    ]);
+    // Strictly sort materials in ascending order by sequence (from smallest to largest: 1, 2, 3, ...)
+    const sortedMaterials = [...materials].sort((a, b) => {
+      const seqA = (a.sequence !== undefined && a.sequence !== null && !isNaN(Number(a.sequence))) ? Number(a.sequence) : Infinity;
+      const seqB = (b.sequence !== undefined && b.sequence !== null && !isNaN(Number(b.sequence))) ? Number(b.sequence) : Infinity;
+      
+      if (seqA !== seqB) {
+        return seqA - seqB;
+      }
+      // Secondary sort: alphanumeric part number
+      return (a.partNumber || '').localeCompare(b.partNumber || '', undefined, { numeric: true, sensitivity: 'base' });
+    });
 
-    return { headers, rows };
+    // Map each material row preserving ascending order and comprehensive inspection details
+    const rows = sortedMaterials.map((m, idx) => {
+      const displaySeq = (m.sequence !== undefined && m.sequence !== null) ? m.sequence.toString() : (idx + 1).toString();
+      const compatibleEqStr = Array.isArray(m.compatibleEquipment) ? m.compatibleEquipment.join(', ') : (m.compatibleEquipment || '');
+      const oemStatusStr = m.oemVerified ? 'موثق / Verified' : (m.oemVerificationStatus || 'Pending');
+
+      return [
+        displaySeq,
+        m.partNumber || '',
+        m.materialCode || '',
+        m.description || '',
+        m.manufacturer || '',
+        m.model || '',
+        m.quantity?.toString() || '0',
+        m.unit || 'EA',
+        m.minStockLevel?.toString() || '10',
+        m.store || '',
+        m.rack || '',
+        m.shelf || '',
+        m.station || 'ZFOD Warehouse',
+        m.oemVerified ? 'Yes / نعم' : 'No / لا',
+        oemStatusStr,
+        m.oemCertificateId || '',
+        m.serialNumber || '',
+        m.electricalRating || '',
+        m.outputProtocol || '',
+        m.measuringRange || '',
+        m.ipRating || '',
+        m.hazardousClassification || m.exClassification || '',
+        compatibleEqStr,
+        m.alternatives?.primary || '',
+        m.alternatives?.secondary || '',
+        m.alternatives?.notes || '',
+        m.internalId || '',
+        m.engineeringNotes || m.notes || m.engineeringComments || ''
+      ];
+    });
+
+    return { headers, rows, sortedMaterials };
   };
 
   const handleExportCSV = () => {
@@ -479,73 +554,199 @@ export default function MaterialsView({
       return;
     }
 
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      triggerLocalToast('error', 'Popup blocked! Please allow popups to export PDF.');
-      return;
-    }
+    // Strictly sort materials in ascending order by sequence (from smallest to largest: 1, 2, 3, ...)
+    const sortedForPdf = [...filteredMaterials].sort((a, b) => {
+      const seqA = (a.sequence !== undefined && a.sequence !== null && !isNaN(Number(a.sequence))) ? Number(a.sequence) : Infinity;
+      const seqB = (b.sequence !== undefined && b.sequence !== null && !isNaN(Number(b.sequence))) ? Number(b.sequence) : Infinity;
+      
+      if (seqA !== seqB) {
+        return seqA - seqB;
+      }
+      return (a.partNumber || '').localeCompare(b.partNumber || '', undefined, { numeric: true, sensitivity: 'base' });
+    });
 
-    const rowsHtml = filteredMaterials.map(m => `
-      <tr style="border-b: 1px solid #ddd;">
-        <td style="padding: 10px; font-family: monospace; font-weight: bold; color: #b45309; font-size: 11px;">#${m.sequence !== undefined ? m.sequence : '-'}</td>
-        <td style="padding: 10px; font-family: monospace; font-weight: bold; font-size: 11px;">${m.partNumber}</td>
-        <td style="padding: 10px; font-size: 11px;">${m.description}</td>
-        <td style="padding: 10px; font-size: 11px;">${m.manufacturer} / ${m.model}</td>
-        <td style="padding: 10px; font-family: monospace; font-weight: bold; text-align: right; font-size: 11px;">${m.quantity} ${m.unit}</td>
-        <td style="padding: 10px; font-size: 11px;">${m.store}</td>
-      </tr>
-    `).join('');
+    const rowsHtml = sortedForPdf.map((m, idx) => {
+      const displaySeq = (m.sequence !== undefined && m.sequence !== null) ? m.sequence : (idx + 1);
+      const locStr = `${m.store || 'Main Store'} (R:${m.rack || '-'} / S:${m.shelf || '-'})`;
+      const techSpecs = [
+        m.electricalRating ? `⚡ ${m.electricalRating}` : null,
+        m.outputProtocol ? `📡 ${m.outputProtocol}` : null,
+        m.measuringRange ? `📏 ${m.measuringRange}` : null,
+        m.ipRating ? `🛡️ ${m.ipRating}` : null
+      ].filter(Boolean).join(' | ');
 
-    printWindow.document.write(`
-      <html>
+      const oemBadge = m.oemVerified 
+        ? '<span style="color: #047857; font-weight: bold; background: #ecfdf5; padding: 2px 6px; border-radius: 4px; border: 1px solid #a7f3d0; font-size: 9px;">✓ OEM موثق</span>'
+        : '<span style="color: #6b7280; font-size: 9px;">قيد التدقيق</span>';
+
+      return `
+        <tr style="border-b: 1px solid #e5e7eb; page-break-inside: avoid;">
+          <td style="padding: 8px 6px; font-family: monospace; font-weight: bold; color: #b45309; font-size: 11px; text-align: center;">
+            #${displaySeq}
+          </td>
+          <td style="padding: 8px 6px; font-family: monospace; font-weight: bold; font-size: 11px; color: #0f172a;">
+            ${m.partNumber}
+            ${m.materialCode ? `<div style="font-size: 9px; color: #64748b; font-weight: normal;">Code: ${m.materialCode}</div>` : ''}
+          </td>
+          <td style="padding: 8px 6px; font-size: 10.5px; line-height: 1.3;">
+            <div style="font-weight: 600; color: #1e293b;">${m.description}</div>
+            ${techSpecs ? `<div style="font-size: 9px; color: #475569; margin-top: 2px; font-family: monospace;">${techSpecs}</div>` : ''}
+          </td>
+          <td style="padding: 8px 6px; font-size: 10.5px; color: #334155;">
+            <div style="font-weight: 600;">${m.manufacturer}</div>
+            <div style="font-size: 9.5px; color: #64748b; font-family: monospace;">${m.model || '-'}</div>
+            <div style="margin-top: 3px;">${oemBadge}</div>
+          </td>
+          <td style="padding: 8px 6px; font-family: monospace; font-weight: bold; text-align: center; font-size: 11px; color: #0f172a;">
+            <div>${m.quantity} ${m.unit || 'EA'}</div>
+            <div style="font-size: 8.5px; color: #94a3b8; font-weight: normal;">Min: ${m.minStockLevel || 10}</div>
+          </td>
+          <td style="padding: 8px 6px; font-size: 10px; color: #334155;">
+            <div style="font-weight: 500;">${locStr}</div>
+            ${m.station ? `<div style="font-size: 8.5px; color: #64748b;">${m.station}</div>` : ''}
+          </td>
+          <td style="padding: 8px 6px; text-align: center; border-left: 1px dashed #cbd5e1;">
+            <div style="width: 14px; height: 14px; border: 1.5px solid #64748b; border-radius: 3px; margin: 0 auto;"></div>
+            <div style="font-size: 8px; color: #94a3b8; margin-top: 2px;">مطابق</div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    const pdfHtml = `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
         <head>
-          <title>ZFOD Instrument Store - Engineering Material Ledger</title>
+          <meta charset="utf-8">
+          <title>تقرير فحص ومطابقة المواد الهندسية - ZFOD EMIS Ledger</title>
           <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 30px; color: #1f2937; }
-            h1 { font-size: 20px; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
-            p { font-size: 11px; color: #4b5563; margin-top: 0; margin-bottom: 25px; }
-            table { width: 100%; border-collapse: collapse; font-size: 11px; }
-            th { background-color: #f3f4f6; color: #4b5563; text-transform: uppercase; font-size: 9px; font-weight: bold; padding: 10px; text-align: left; border-bottom: 2px solid #e5e7eb; }
-            td { border-bottom: 1px solid #f3f4f6; }
+            @page {
+              size: A4 landscape;
+              margin: 12mm 10mm;
+            }
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Tahoma, Arial, sans-serif; 
+              padding: 15px; 
+              color: #0f172a; 
+              background: #fff;
+              direction: rtl;
+            }
+            .header-banner {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-bottom: 2.5px solid #0f172a;
+              padding-bottom: 12px;
+              margin-bottom: 16px;
+            }
+            .title-area h1 {
+              font-size: 18px;
+              font-weight: 800;
+              margin: 0 0 4px 0;
+              color: #0f172a;
+              letter-spacing: -0.2px;
+            }
+            .title-area p {
+              font-size: 11px;
+              color: #475569;
+              margin: 0;
+            }
+            .meta-info {
+              text-align: left;
+              direction: ltr;
+              font-size: 10px;
+              font-family: monospace;
+              color: #334155;
+              line-height: 1.4;
+            }
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              font-size: 10.5px; 
+              text-align: right;
+            }
+            th { 
+              background-color: #f1f5f9; 
+              color: #1e293b; 
+              font-size: 9.5px; 
+              font-weight: 700; 
+              padding: 9px 6px; 
+              border-top: 1px solid #cbd5e1;
+              border-bottom: 2px solid #94a3b8; 
+            }
+            tr:nth-child(even) {
+              background-color: #f8fafc;
+            }
+            .footer-notes {
+              margin-top: 20px;
+              border-top: 1px solid #cbd5e1;
+              padding-top: 10px;
+              display: flex;
+              justify-content: space-between;
+              font-size: 9.5px;
+              color: #64748b;
+            }
+            .signature-box {
+              width: 180px;
+              border-top: 1px solid #475569;
+              text-align: center;
+              padding-top: 4px;
+              font-weight: bold;
+              margin-top: 25px;
+            }
           </style>
         </head>
         <body>
-          <div style="display: flex; justify-content: space-between; align-items: start; border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 20px;">
-            <div>
-              <h1>ZFOD Instrument Store</h1>
-              <p>Engineering Material Ledger & Inventory Directory</p>
+          <div class="header-banner">
+            <div class="title-area">
+              <h1>📋 كشف وسجل فحص ومطابقة المواد الهندسية (EMIS Inspection & Matching Ledger)</h1>
+              <p>ZFOD Instrument & Electrical Engineering Store — مرتب تسلسلياً من الأصغر إلى الأكبر للفحص والمطابقة الميدانية</p>
             </div>
-            <div style="text-align: right; font-size: 10px; font-family: monospace;">
-              <strong>Date Generated:</strong> ${new Date().toLocaleDateString()}<br/>
-              <strong>Total Records:</strong> ${filteredMaterials.length}
+            <div class="meta-info">
+              <strong>Generated:</strong> ${new Date().toLocaleString()}<br/>
+              <strong>Total Sorted Items:</strong> ${sortedForPdf.length} Records<br/>
+              <strong>Order:</strong> Ascending Sequence (1 → N)
             </div>
           </div>
+
           <table>
             <thead>
               <tr>
-                <th style="width: 80px;">Seq # / التسلسل</th>
-                <th style="width: 140px;">Part Number</th>
-                <th>Description</th>
-                <th style="width: 180px;">Manufacturer / Model</th>
-                <th style="width: 100px; text-align: right;">Quantity</th>
-                <th style="width: 120px;">Location</th>
+                <th style="width: 55px; text-align: center;">التسلسل<br/>Seq #</th>
+                <th style="width: 130px;">رقم القطعة والكود<br/>Part Number / Code</th>
+                <th>الوصف والمواصفات الفنية<br/>Description & Technical Specs</th>
+                <th style="width: 140px;">الشركة والموديل والتوثيق<br/>Manufacturer / Model</th>
+                <th style="width: 80px; text-align: center;">الكمية المتوفرة<br/>Stock Qty</th>
+                <th style="width: 130px;">المستودع والموقع<br/>Storage Coordinates</th>
+                <th style="width: 60px; text-align: center;">المطابقة<br/>Verified</th>
               </tr>
             </thead>
             <tbody>
               ${rowsHtml}
             </tbody>
           </table>
+
+          <div class="footer-notes">
+            <div>
+              <strong>ملاحظات لجنة الفحص والاستلام:</strong> تم إعداد وتصدير هذا التقرير المنظم وفقاً للمواصفات الهندسية الشاملة لسهولة المطابقة الميدانية.
+            </div>
+            <div style="display: flex; gap: 40px;">
+              <div class="signature-box">توقيع مهندس الفحص والمطابقة</div>
+              <div class="signature-box">اعتماد أمين المستودع</div>
+            </div>
+          </div>
+
           <script>
             window.onload = function() {
-              window.print();
-              setTimeout(function() { window.close(); }, 500);
+              setTimeout(function() { try { window.print(); } catch(e){} }, 400);
             };
           </script>
         </body>
       </html>
-    `);
-    printWindow.document.close();
-    triggerLocalToast('success', 'PDF printable document generated successfully.');
+    `;
+
+    executePrint('كشف_فحص_ومطابقة_المواد_الهندسية', pdfHtml, `ZFOD_EMIS_Ledger_${new Date().toISOString().slice(0, 10)}.html`);
+    triggerLocalToast('success', 'تم تجهيز كشف الفحص والمطابقة للطباعة بنجاح.');
   };
 
   const [confirmDeletePart, setConfirmDeletePart] = useState<string | null>(null);
@@ -640,22 +841,13 @@ Your guidelines:
 3. If asked about compatibility, authenticity, or technical specs, and you are not 100% sure based on the provided material context or known standards, you MUST clearly warn the engineer that this is an AI estimate/assessment and not an official confirmation, and strongly recommend reviewing the official datasheet, contacting the OEM (Original Equipment Manufacturer), or checking warehouse physical files.
 4. Keep the tone helpful, technical, and objective. Avoid overly dramatic or promotional language.`;
 
-      // Wait a tiny bit to let state update if needed, but since we slice from currentHistory, we can pass it directly
-      const response = await fetch('/api/gemini/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: userMessageText,
-          history: currentHistory.slice(0, -1),
-          systemInstruction: systemInstruction
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to communicate with AI Engineering Assistant");
-      }
-
-      const resData = await response.json();
+      // Chat with AI Assistant
+      const resData = await apiChatWithAi(
+        userMessageText,
+        currentHistory.slice(0, -1),
+        systemInstruction,
+        selectedMaterial ? [selectedMaterial] : []
+      );
       
       const assistantMsg = {
         role: 'model' as const,
@@ -761,40 +953,21 @@ Your guidelines:
   };
 
   const handleTriggerPrint = () => {
-    const style = document.createElement('style');
-    style.id = 'print-label-style-override';
-    style.textContent = `
-      @media print {
-        body * {
-          visibility: hidden !important;
-        }
-        #printable-label-area, #printable-label-area * {
-          visibility: visible !important;
-        }
-        #printable-label-area {
-          position: fixed !important;
-          left: 50% !important;
-          top: 50% !important;
-          transform: translate(-50%, -50%) !important;
-          width: 90mm !important;
-          height: 60mm !important;
-          border: 2px solid black !important;
-          padding: 5mm !important;
-          background: white !important;
-          color: black !important;
-          box-sizing: border-box !important;
-        }
-        .no-print {
-          display: none !important;
-        }
-      }
-    `;
-    document.head.appendChild(style);
-    window.print();
-    setTimeout(() => {
-      const el = document.getElementById('print-label-style-override');
-      if (el) el.remove();
-    }, 1500);
+    if (!printLabelMaterial) return;
+
+    // Extract QR Canvas data URL if rendered in DOM
+    const canvas = document.querySelector('#printable-label-area canvas') as HTMLCanvasElement;
+    const qrDataUrl = canvas ? canvas.toDataURL('image/png') : undefined;
+
+    const tagHtml = generateAssetTagHtml(printLabelMaterial, {
+      size: printLabelSize,
+      includeMfg: printIncludeMfg,
+      includeLocation: printIncludeLocation,
+      includeSpecs: printIncludeSpecs,
+      qrDataUrl
+    });
+
+    executePrint(`ملصق_${printLabelMaterial.partNumber}`, tagHtml, `Asset_Tag_${printLabelMaterial.partNumber}.html`);
   };
 
   // Sync state if initialSearchQuery changes (e.g. from dashboard clicks or deep link)
@@ -950,6 +1123,49 @@ Your guidelines:
     setSelectedMaterial(updated);
     setIsEditingCoreDetails(false);
     triggerLocalToast('success', 'Core engineering specification data successfully completed / updated.');
+  };
+
+  const handleAutoEnrichCoreDetails = async () => {
+    if (!editPartNumber.trim() && !editModel.trim() && !editDescription.trim() && !editManufacturer.trim()) {
+      triggerLocalToast('error', 'يرجى كتابة رقم القطعة أو الطراز أو اسم المصنع أولاً ليقوم الذكاء الاصطناعي بالتعرف عليه.');
+      return;
+    }
+
+    setIsAutoEnrichingCore(true);
+    try {
+      const enriched = await apiAutoCompleteMaterial({
+        partNumber: editPartNumber.trim(),
+        manufacturer: editManufacturer.trim(),
+        model: editModel.trim(),
+        description: editDescription.trim(),
+        scannedText: editEngineeringComments
+      });
+
+      if (enriched.description) setEditDescription(enriched.description);
+      if (enriched.manufacturer) setEditManufacturer(enriched.manufacturer);
+      if (enriched.model && (!editModel || editModel === 'N/A')) setEditModel(enriched.model);
+      if (enriched.minStockLevel && enriched.minStockLevel > 0) setEditMinStock(enriched.minStockLevel);
+      if (enriched.suggestedStore && (!editWarehouse || editWarehouse === 'General Inventory')) setEditWarehouse(enriched.suggestedStore);
+
+      const specBlock = `\n--- ⚡ المواصفات الفنية المعتمدة (Gemini Engineering Specs) ---\n` +
+        `• الوصف الفني: ${enriched.technicalSummary || 'N/A'}\n` +
+        `• الجهد التشغيلي: ${enriched.voltage || 'N/A'}\n` +
+        `• التيار: ${enriched.current || 'N/A'}\n` +
+        `• القدرة: ${enriched.power || 'N/A'}\n` +
+        `• إشارة الإخراج: ${enriched.signalOutput || 'N/A'}\n` +
+        `• النطاق التشغيلي: ${enriched.operatingRange || 'N/A'}\n` +
+        `• درجة الحماية: ${enriched.ipRating || 'N/A'}\n` +
+        `• شهادات المناطق الخطرة: ${enriched.hazardousCertification || 'N/A'}\n` +
+        `• تعليمات الأمان بالمستودع: ${enriched.safetyNotes || 'N/A'}\n`;
+
+      setEditEngineeringComments(prev => prev ? `${prev}\n${specBlock}` : specBlock.trim());
+      triggerLocalToast('success', `✨ تم استخراج وإكمال المواصفات الفنية بالذكاء الاصطناعي (${enriched.manufacturer} ${enriched.model || ''})`);
+    } catch (err) {
+      console.error("Auto enrich error:", err);
+      triggerLocalToast('error', 'تعذر إكمال البيانات عبر الذكاء الاصطناعي حالياً.');
+    } finally {
+      setIsAutoEnrichingCore(false);
+    }
   };
 
   // Advanced Engineering Handler Functions
@@ -1524,6 +1740,28 @@ Your guidelines:
                 <span>مسح الكل / Clear All Materials</span>
               </button>
             )}
+            <NameplateScanner
+              materialsList={materials}
+              buttonClassName="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-3.5 py-2.5 rounded-xl transition-colors cursor-pointer shadow-sm"
+              renderTrigger={(open) => (
+                <button
+                  type="button"
+                  onClick={open}
+                  className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-3.5 py-2.5 rounded-xl transition-colors cursor-pointer shadow-sm"
+                  id="btn-scan-ledger-top"
+                >
+                  <Camera className="h-4 w-4" />
+                  <span>مسح باركود / لوحة المادة</span>
+                </button>
+              )}
+              onEditMaterial={(mat) => {
+                setSelectedMaterial(mat);
+                setIsEditingCoreDetails(true);
+              }}
+              onRegisterNewEntry={(data) => {
+                onNavigateToTab('add-material', '', data);
+              }}
+            />
             {isWritable && (
               <button
                 onClick={() => onNavigateToTab('add-material')}
@@ -1978,18 +2216,39 @@ Your guidelines:
 
                       {isEditingCoreDetails ? (
                         <form onSubmit={handleSaveCoreDetails} className="space-y-4 bg-industrial-50/60 p-5 rounded-2xl border border-industrial-200">
-                          <div className="flex justify-between items-center border-b border-industrial-200 pb-2.5">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-industrial-200 pb-2.5">
                             <h4 className="text-xs font-bold text-industrial-800 uppercase tracking-wider font-mono flex items-center gap-1.5">
                               <Edit className="h-4 w-4 text-brand-600" />
                               <span>تعديل المواصفات الهندسية / Edit Engineering Specifications</span>
                             </h4>
-                            <button
-                              type="button"
-                              onClick={() => setIsEditingCoreDetails(false)}
-                              className="text-industrial-450 hover:text-industrial-700 text-xs font-bold font-sans"
-                            >
-                              إلغاء / Cancel
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={handleAutoEnrichCoreDetails}
+                                disabled={isAutoEnrichingCore}
+                                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-1 shadow-xs cursor-pointer disabled:opacity-50"
+                                title="إكمال المواصفات والوصف الفني تلقائياً بواسطة الذكاء الاصطناعي"
+                              >
+                                {isAutoEnrichingCore ? (
+                                  <>
+                                    <RefreshCw className="h-3 w-3 animate-spin" />
+                                    <span>جاري الإكمال...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Sparkles className="h-3 w-3" />
+                                    <span>إكمال وتوليد المواصفات بالذكاء الاصطناعي (AI Enrich)</span>
+                                  </>
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setIsEditingCoreDetails(false)}
+                                className="text-industrial-450 hover:text-industrial-700 text-xs font-bold font-sans"
+                              >
+                                إلغاء / Cancel
+                              </button>
+                            </div>
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -3975,7 +4234,7 @@ Your guidelines:
                                 }
                                 setDatasheetCompareLoading(true);
                                 try {
-                                  const res = await fetch('/api/gemini/compare-datasheets', {
+                                  const res = await fetch(`${getBaseApiUrl()}/api/gemini/compare-datasheets`, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
@@ -4255,7 +4514,7 @@ Your guidelines:
                                 }
                                 setCocCompareLoading(true);
                                 try {
-                                  const res = await fetch('/api/gemini/compare-coc', {
+                                  const res = await fetch(`${getBaseApiUrl()}/api/gemini/compare-coc`, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
@@ -4508,7 +4767,7 @@ Your guidelines:
                             onClick={async () => {
                               setKnowledgeLoading(true);
                               try {
-                                const res = await fetch('/api/gemini/knowledge-assistant', {
+                                const res = await fetch(`${getBaseApiUrl()}/api/gemini/knowledge-assistant`, {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({ material: selectedMaterial })
@@ -4672,7 +4931,7 @@ Your guidelines:
                             onClick={async () => {
                               setAltPartsLoading(true);
                               try {
-                                const res = await fetch('/api/gemini/alternative-parts', {
+                                const res = await fetch(`${getBaseApiUrl()}/api/gemini/alternative-parts`, {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({ material: selectedMaterial })
@@ -5773,11 +6032,53 @@ Your guidelines:
                 </button>
                 <button
                   type="button"
+                  onClick={() => {
+                    if (!printLabelMaterial) return;
+                    const canvas = document.querySelector('#printable-label-area canvas') as HTMLCanvasElement;
+                    const qrDataUrl = canvas ? canvas.toDataURL('image/png') : undefined;
+                    const tagHtml = generateAssetTagHtml(printLabelMaterial, {
+                      size: printLabelSize,
+                      includeMfg: printIncludeMfg,
+                      includeLocation: printIncludeLocation,
+                      includeSpecs: printIncludeSpecs,
+                      qrDataUrl
+                    });
+                    downloadDocument(tagHtml, `Asset_Tag_${printLabelMaterial.partNumber}.html`);
+                  }}
+                  className="bg-white border border-industrial-250 hover:bg-industrial-100 text-industrial-700 font-bold text-xs px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="تنزيل ملف الملصق للطباعة اليدوية أو في أجهزة Zebra/Brother"
+                >
+                  <Download className="h-3.5 w-3.5 text-industrial-500" />
+                  <span>تنزيل الملصق</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!printLabelMaterial) return;
+                    const canvas = document.querySelector('#printable-label-area canvas') as HTMLCanvasElement;
+                    const qrDataUrl = canvas ? canvas.toDataURL('image/png') : undefined;
+                    const tagHtml = generateAssetTagHtml(printLabelMaterial, {
+                      size: printLabelSize,
+                      includeMfg: printIncludeMfg,
+                      includeLocation: printIncludeLocation,
+                      includeSpecs: printIncludeSpecs,
+                      qrDataUrl
+                    });
+                    openDocumentInNewTab(tagHtml, `Asset_Tag_${printLabelMaterial.partNumber}`);
+                  }}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="فتح الملصق في نافذة متصفح مستقلة للطباعة الفورية"
+                >
+                  <ExternalLink className="h-3.5 w-3.5 text-slate-600" />
+                  <span>فتح بنافذة جديدة</span>
+                </button>
+                <button
+                  type="button"
                   onClick={handleTriggerPrint}
                   className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-5 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-slate-900/10"
                 >
                   <Printer className="h-4 w-4" />
-                  <span>تأكيد الطباعة / Print Asset Tag</span>
+                  <span>تأكيد الطباعة / Print Tag</span>
                 </button>
               </div>
             </motion.div>
