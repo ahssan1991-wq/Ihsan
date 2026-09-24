@@ -516,8 +516,9 @@ export const ReorderAutomationView: React.FC<ReorderAutomationProps> = ({
                     </td>
                   </tr>
                 ) : (
-                  filteredDeficits.map((mat) => {
-                    const isSelected = selectedParts.includes(mat.partNumber);
+                  filteredDeficits.map((mat, idx) => {
+                    const matKey = mat.id || (mat.sequence !== undefined ? `mat-seq-${mat.sequence}` : '') || mat.partNumber || `reorder-${idx}`;
+                    const isSelected = selectedParts.includes(mat.partNumber) || selectedParts.includes(matKey);
                     const minStock = mat.minStockLevel || 10;
                     const deficit = Math.max(0, minStock - mat.quantity);
                     const defaultOrderQty = Math.max(minStock * 2 - mat.quantity, minStock);
@@ -526,7 +527,7 @@ export const ReorderAutomationView: React.FC<ReorderAutomationProps> = ({
 
                     return (
                       <tr 
-                        key={mat.partNumber}
+                        key={matKey}
                         className={`hover:bg-industrial-50 dark:hover:bg-industrial-800/50 transition-colors ${
                           isSelected ? 'bg-indigo-50/50 dark:bg-indigo-950/20' : ''
                         }`}
@@ -534,7 +535,7 @@ export const ReorderAutomationView: React.FC<ReorderAutomationProps> = ({
                         <td className="p-3 text-center">
                           <button
                             type="button"
-                            onClick={() => toggleSelectPart(mat.partNumber)}
+                            onClick={() => toggleSelectPart(mat.partNumber || matKey)}
                             className="text-indigo-600 dark:text-indigo-400 cursor-pointer"
                           >
                             {isSelected ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4 text-industrial-300" />}
@@ -542,7 +543,9 @@ export const ReorderAutomationView: React.FC<ReorderAutomationProps> = ({
                         </td>
                         <td className="p-3">
                           <div className="font-mono font-bold text-industrial-900 dark:text-industrial-100">
-                            {mat.partNumber}
+                            {mat.partNumber || (
+                              <span className="text-industrial-400 italic font-sans font-normal text-xs">— (بدون رقم قطعة)</span>
+                            )}
                           </div>
                           <div className="text-industrial-500 text-[11px] truncate max-w-xs">
                             {mat.description || mat.name}

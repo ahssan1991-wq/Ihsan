@@ -1,25 +1,83 @@
-/**
- * EMIS Service Worker - Safe Bypass & Cache Purge Worker
- * Ensures all Vite dynamic modules and React chunks bypass SW caching.
- */
+// EMIS Industrial PWA Service Worker
+const CACHE_NAME = 'emis-pwa-v1';
+const PRECACHE_ASSETS = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/pwa-192x192.png',
+  '/pwa-512x512.png',
+  '/pwa-maskable-512x512.png',
+  '/apple-touch-icon.png',
+  '/icon-512.svg'
+];
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(PRECACHE_ASSETS).catch((err) => {
+        console.warn('[PWA SW] Precache non-blocking error:', err);
+      });
+    })
+  );
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
-      return Promise.all(keys.map((k) => caches.delete(k)));
-    }).then(() => {
-      return self.clients.claim();
-    }).then(() => {
-      return self.registration.unregister();
-    })
+      return Promise.all(
+        keys.map((key) => {
+          if (key !== CACHE_NAME) {
+            return caches.delete(key);
+          }
+        })
+      );
+    }).then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', (event) => {
-  // Always fetch live from network to prevent caching out-of-sync React scripts
-  event.respondWith(fetch(event.request));
+  const url = new URL(event.request.url);
+
+  // Always use live network for API endpoints, hot module reload, and websockets
+  if (
+    url.pathname.startsWith('/api') ||
+    url.pathname.startsWith('/uploads') ||
+    url.pathname.startsWith('/@vite') ||
+    url.pathname.startsWith('/@fs') ||
+    url.pathname.startsWith('/@id') ||
+    url.pathname.includes('hot-update') ||
+    url.protocol === 'ws:' ||
+    url.protocol === 'wss:'
+  ) {
+    return;
+  }
+
+  // Stale-While-Revalidate for cached static assets, Network-First for navigation
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(async () => {
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+        return caches.match('/index.html');
+      })
+    );
+    return;
+  }
+
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      const fetchPromise = fetch(event.request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+        }
+        return networkResponse;
+      }).catch(() => cachedResponse);
+
+      return cachedResponse || fetchPromise;
+    })
+  );
 });

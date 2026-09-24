@@ -37,7 +37,8 @@ import {
   ClipboardCheck,
   ShoppingCart,
   Hourglass,
-  Wrench
+  Wrench,
+  Download
 } from 'lucide-react';
 import { UserRole } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -500,6 +501,20 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
     arabicGroupTitle: 'الإدارة والحوكمة',
     roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
     keywords: ['status', 'api', 'health', 'تشخيص', 'فحص', 'اعدادات']
+  },
+  {
+    id: 'install-app',
+    nameKey: 'installApp',
+    fallbackName: 'Install App on Device',
+    arabicName: 'تثبيت التطبيق على جهازي (PWA)',
+    icon: Download,
+    groupId: 'group-admin',
+    groupTitleKey: 'groupAdmin',
+    fallbackGroupTitle: 'Administration & Governance',
+    arabicGroupTitle: 'الإدارة والحوكمة',
+    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
+    badge: 'PWA',
+    keywords: ['install', 'download', 'pwa', 'desktop', 'app', 'apk', 'offline', 'تثبيت', 'تحميل', 'تطبيق', 'جهاز', 'كمبيوتر', 'هاتف']
   }
 ];
 

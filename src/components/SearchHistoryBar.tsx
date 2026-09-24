@@ -279,14 +279,15 @@ export default function SearchHistoryBar({
             <p className="text-[11px] text-industrial-400 py-1">لا توجد قطع غيار مسجلة في سجل الوصول السريع بعد.</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-              {displayedParts.map((part) => {
+              {displayedParts.map((part, idx) => {
                 const matchedMat = materialsList.find(
-                  m => m.partNumber.toUpperCase() === part.partNumber.toUpperCase()
+                  m => (m.partNumber && part.partNumber && m.partNumber.toUpperCase() === part.partNumber.toUpperCase()) ||
+                       (m.id && part.partNumber && m.id === part.partNumber)
                 );
 
                 return (
                   <motion.div
-                    key={part.partNumber}
+                    key={part.partNumber ? `hist-${part.partNumber}` : `hist-part-${idx}`}
                     layout
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}

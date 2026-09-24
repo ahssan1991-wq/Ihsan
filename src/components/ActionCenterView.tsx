@@ -261,9 +261,9 @@ export default function ActionCenterView({
             }}
           />
         ) : (
-          filteredItems.map(item => (
+          filteredItems.map((item, idx) => (
             <div
-              key={item.id}
+              key={item.id ? `${item.id}-${idx}` : `action-item-${idx}`}
               className={`p-4 sm:p-5 rounded-2xl border bg-industrial-900 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
                 item.severity === 'CRITICAL'
                   ? 'border-rose-500/30 hover:border-rose-500/50 bg-rose-950/10'

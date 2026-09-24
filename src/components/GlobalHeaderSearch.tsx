@@ -22,6 +22,7 @@ import {
 import { performGlobalSearch, GlobalSearchResults, GlobalSearchResultItem } from '../services/port14Service';
 import { Material } from '../types';
 import { EMISBadge, EMISStatus } from './design-system';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface GlobalHeaderSearchProps {
   onSelectMaterial?: (material: Material) => void;
@@ -34,6 +35,7 @@ export default function GlobalHeaderSearch({
   onNavigateToTab,
   className = ''
 }: GlobalHeaderSearchProps) {
+  const { language, isRTL } = useLanguage();
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [results, setResults] = useState<GlobalSearchResults | null>(null);
@@ -89,10 +91,10 @@ export default function GlobalHeaderSearch({
   };
 
   return (
-    <div ref={searchRef} className={`relative ${className}`}>
+    <div ref={searchRef} className={`relative ${className}`} dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Search Input Field */}
       <div className="relative flex items-center w-full">
-        <Search className="absolute left-3.5 h-4 w-4 text-industrial-400 pointer-events-none" />
+        <Search className={`absolute ${isRTL ? 'right-2.5 sm:right-3' : 'left-2.5 sm:left-3'} h-3.5 w-3.5 sm:h-4 sm:w-4 text-industrial-400 pointer-events-none`} />
         <input
           type="text"
           value={query}
@@ -100,11 +102,11 @@ export default function GlobalHeaderSearch({
           onFocus={() => {
             if (query.trim().length >= 2) setIsOpen(true);
           }}
-          placeholder="🔍 Search materials, PN, SN, MR, PO, WO, site, warehouse..."
-          className="w-full pl-10 pr-20 py-2 bg-industrial-850 hover:bg-industrial-800 focus:bg-industrial-900 border border-industrial-700/80 focus:border-brand-500 rounded-xl text-xs md:text-sm text-white placeholder-industrial-400 focus:outline-hidden focus:ring-1 focus:ring-brand-500 transition-all shadow-inner"
+          placeholder={language === 'ar' ? 'بحث سريع...' : 'Search...'}
+          className={`w-full ${isRTL ? 'pr-8 pl-7 sm:pr-9 sm:pl-14 text-right' : 'pl-8 pr-7 sm:pl-9 sm:pr-14 text-left'} py-1.5 sm:py-2 bg-industrial-850 hover:bg-industrial-800 focus:bg-industrial-900 border border-industrial-700/80 focus:border-brand-500 rounded-xl text-xs text-white placeholder-industrial-400 focus:outline-hidden focus:ring-1 focus:ring-brand-500 transition-all shadow-inner`}
           id="global-header-search-input"
         />
-        <div className="absolute right-2.5 flex items-center gap-1.5">
+        <div className={`absolute ${isRTL ? 'left-2.5' : 'right-2.5'} flex items-center gap-1.5`}>
           {query && (
             <button
               onClick={() => {
@@ -132,7 +134,7 @@ export default function GlobalHeaderSearch({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 5, scale: 0.98 }}
             transition={{ duration: 0.15 }}
-            className="absolute top-full mt-2 left-0 right-0 w-full md:w-[540px] bg-industrial-900 border border-industrial-750 rounded-2xl shadow-2xl overflow-hidden z-50 text-white max-h-[75vh] flex flex-col"
+            className={`absolute top-full mt-2 ${isRTL ? 'right-0' : 'left-0'} w-full md:w-[540px] bg-industrial-900 border border-industrial-750 rounded-2xl shadow-2xl overflow-hidden z-50 text-white max-h-[75vh] flex flex-col`}
             id="global-search-dropdown"
           >
             {/* Header */}

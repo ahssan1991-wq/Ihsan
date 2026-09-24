@@ -32,36 +32,39 @@ export function getActionCenterItems(currentUser: User): ActionCenterItem[] {
   const syncSummary = dbService.getSyncStatusSummary();
 
   // 1. CRITICAL: Zero or critically low stock
-  materials.forEach(mat => {
+  materials.forEach((mat, idx) => {
+    const matKey = mat.id || (mat.sequence !== undefined ? `seq-${mat.sequence}` : '') || mat.partNumber || `idx-${idx}`;
+    const displayName = mat.name || mat.description?.slice(0, 35) || (mat.partNumber ? mat.partNumber : `Material #${mat.sequence || idx + 1}`);
+
     if (mat.quantity === 0) {
       items.push({
-        id: `act-zero-stock-${mat.partNumber}`,
-        title: `Out of Stock: ${mat.name || mat.partNumber}`,
-        description: `Material ${mat.partNumber} (${mat.manufacturer}) has reached 0 ${mat.unit} in ${mat.warehouse || 'Warehouse'}. Immediate reorder required.`,
+        id: `act-zero-stock-${matKey}`,
+        title: `Out of Stock: ${displayName}`,
+        description: `Material ${mat.partNumber || displayName} (${mat.manufacturer || 'OEM'}) has reached 0 ${mat.unit || 'EA'} in ${mat.warehouse || 'Warehouse'}. Immediate reorder required.`,
         source: 'Inventory Monitoring',
         date: new Date().toISOString(),
         severity: 'CRITICAL',
         responsibleRole: UserRole.WAREHOUSE,
-        relatedRecordId: mat.partNumber,
+        relatedRecordId: mat.partNumber || matKey,
         relatedRecordType: 'MATERIAL',
         actionLabel: 'View Material Passport',
         actionTab: 'materials',
-        actionPayload: { partNumber: mat.partNumber }
+        actionPayload: { partNumber: mat.partNumber, material: mat }
       });
     } else if (mat.minStockLevel && mat.quantity <= mat.minStockLevel) {
       items.push({
-        id: `act-low-stock-${mat.partNumber}`,
-        title: `Low Stock Alert: ${mat.name || mat.partNumber}`,
-        description: `Current quantity (${mat.quantity} ${mat.unit}) is below minimum safe threshold (${mat.minStockLevel} ${mat.unit}).`,
+        id: `act-low-stock-${matKey}`,
+        title: `Low Stock Alert: ${displayName}`,
+        description: `Current quantity (${mat.quantity} ${mat.unit || 'EA'}) is below minimum safe threshold (${mat.minStockLevel} ${mat.unit || 'EA'}).`,
         source: 'Inventory Monitoring',
         date: new Date().toISOString(),
         severity: 'WARNING',
         responsibleRole: UserRole.WAREHOUSE,
-        relatedRecordId: mat.partNumber,
+        relatedRecordId: mat.partNumber || matKey,
         relatedRecordType: 'MATERIAL',
         actionLabel: 'Check Stock',
         actionTab: 'materials',
-        actionPayload: { partNumber: mat.partNumber }
+        actionPayload: { partNumber: mat.partNumber, material: mat }
       });
     }
   });
@@ -69,19 +72,19 @@ export function getActionCenterItems(currentUser: User): ActionCenterItem[] {
   // 2. CRITICAL: Blacklisted or Quarantined Materials detected in active storage
   blacklist.forEach(b => {
     const matched = materials.filter(
-      m => m.partNumber.toUpperCase() === b.partNumber.toUpperCase() ||
+      m => (b.partNumber && m.partNumber && m.partNumber.toUpperCase() === b.partNumber.toUpperCase()) ||
            (b.serialNumber && m.serialNumber && m.serialNumber.toUpperCase() === b.serialNumber.toUpperCase())
     );
     if (matched.length > 0) {
       items.push({
         id: `act-blacklist-${b.id}`,
-        title: `Quarantined Item Detected: ${b.partNumber}`,
+        title: `Quarantined Item Detected: ${b.partNumber || b.supplierName || 'Blacklisted Item'}`,
         description: `Item matching blacklist rule #${b.id} (${b.reason}) is active in stock. Immediate quarantine required.`,
         source: 'Security & Quality Compliance',
         date: b.reportedDate || new Date().toISOString(),
         severity: 'CRITICAL',
         responsibleRole: UserRole.ENGINEER,
-        relatedRecordId: b.partNumber,
+        relatedRecordId: b.partNumber || b.id,
         relatedRecordType: 'MATERIAL',
         actionLabel: 'Quarantine Action',
         actionTab: 'blacklist',
@@ -91,37 +94,43 @@ export function getActionCenterItems(currentUser: User): ActionCenterItem[] {
   });
 
   // 3. PENDING: Pending Inspection materials
-  materials.forEach(mat => {
+  materials.forEach((mat, idx) => {
+    const matKey = mat.id || (mat.sequence !== undefined ? `seq-${mat.sequence}` : '') || mat.partNumber || `idx-${idx}`;
+    const displayName = mat.name || mat.description?.slice(0, 35) || (mat.partNumber ? mat.partNumber : `Material #${mat.sequence || idx + 1}`);
+
     if (mat.inspectionStatus === 'pending' || mat.inspectionStatus === 'underInspection') {
       items.push({
-        id: `act-insp-${mat.partNumber}`,
-        title: `Pending QA Inspection: ${mat.partNumber}`,
-        description: `Material received at ${mat.site || 'Site'} (${mat.warehouse}) requires physical & technical inspection sign-off.`,
+        id: `act-insp-${matKey}`,
+        title: `Pending QA Inspection: ${displayName}`,
+        description: `Material received at ${mat.site || 'Site'} (${mat.warehouse || 'Store'}) requires physical & technical inspection sign-off.`,
         source: 'QA & Receiving Operations',
         date: mat.inspectionDate || new Date().toISOString(),
         severity: 'PENDING',
         responsibleRole: UserRole.INSPECTOR || UserRole.ENGINEER,
-        relatedRecordId: mat.partNumber,
+        relatedRecordId: mat.partNumber || matKey,
         relatedRecordType: 'INSPECTION',
         actionLabel: 'Complete Inspection',
         actionTab: 'mrf-management',
-        actionPayload: { partNumber: mat.partNumber }
+        actionPayload: { partNumber: mat.partNumber, material: mat }
       });
     }
   });
 
   // 4. WARNING: Data Quality defects (Missing PN, Missing Manufacturer)
-  materials.forEach(mat => {
+  materials.forEach((mat, idx) => {
+    const matKey = mat.id || (mat.sequence !== undefined ? `seq-${mat.sequence}` : '') || mat.partNumber || `idx-${idx}`;
+    const displayName = mat.name || mat.description?.slice(0, 35) || (mat.partNumber ? mat.partNumber : `Material #${mat.sequence || idx + 1}`);
+
     if (!mat.partNumber || mat.partNumber.trim().length < 2) {
       items.push({
-        id: `act-missing-pn-${mat.id || Math.random()}`,
-        title: `Missing Part Number: ${mat.name || 'Unnamed Material'}`,
+        id: `act-missing-pn-${matKey}`,
+        title: `Missing Part Number: ${displayName}`,
         description: `Catalog item lacks an authoritative Part Number (PN). Technical traceability compromised.`,
         source: 'Data Quality Engine',
         date: new Date().toISOString(),
         severity: 'WARNING',
         responsibleRole: UserRole.ENGINEER,
-        relatedRecordId: mat.partNumber,
+        relatedRecordId: mat.partNumber || matKey,
         relatedRecordType: 'MATERIAL',
         actionLabel: 'Resolve in Quality Center',
         actionTab: 'data-quality',
@@ -130,18 +139,18 @@ export function getActionCenterItems(currentUser: User): ActionCenterItem[] {
     }
     if (!mat.manufacturer || mat.manufacturer.trim().length < 2) {
       items.push({
-        id: `act-missing-mfr-${mat.partNumber}`,
-        title: `Missing Manufacturer: ${mat.partNumber}`,
-        description: `No OEM/Manufacturer registered for part ${mat.partNumber}.`,
+        id: `act-missing-mfr-${matKey}`,
+        title: `Missing Manufacturer: ${displayName}`,
+        description: `No OEM/Manufacturer registered for item ${displayName}.`,
         source: 'Data Quality Engine',
         date: new Date().toISOString(),
         severity: 'WARNING',
         responsibleRole: UserRole.ENGINEER,
-        relatedRecordId: mat.partNumber,
+        relatedRecordId: mat.partNumber || matKey,
         relatedRecordType: 'MATERIAL',
         actionLabel: 'Update Record',
         actionTab: 'materials',
-        actionPayload: { partNumber: mat.partNumber }
+        actionPayload: { partNumber: mat.partNumber, material: mat }
       });
     }
   });
@@ -248,12 +257,13 @@ export function scanDataQualityIssues(materials: Material[]): DataQualityIssue[]
 
     // 2. Missing Manufacturer
     if (!mat.manufacturer || mat.manufacturer.trim().length < 2) {
+      const matKey = mat.id || (mat.sequence !== undefined ? `seq-${mat.sequence}` : '') || mat.partNumber || Math.random().toString(36).substring(2, 7);
       issues.push({
-        id: `dqi-mfr-${mat.partNumber}`,
+        id: `dqi-mfr-${matKey}`,
         type: 'MISSING_MANUFACTURER',
         severity: 'HIGH',
-        recordId: mat.partNumber,
-        recordTitle: mat.name || mat.partNumber,
+        recordId: mat.partNumber || matKey,
+        recordTitle: mat.name || mat.description?.slice(0, 35) || mat.partNumber || 'Unnamed Material',
         reason: 'OEM Manufacturer field is blank or unspecified.',
         suggestedFix: 'Specify manufacturer or brand based on physical nameplate or datasheet.',
         suggestedValue: 'Standard Industrial OEM',
@@ -265,12 +275,13 @@ export function scanDataQualityIssues(materials: Material[]): DataQualityIssue[]
 
     // 3. Invalid or Negative Quantity
     if (mat.quantity < 0 || isNaN(mat.quantity)) {
+      const matKey = mat.id || (mat.sequence !== undefined ? `seq-${mat.sequence}` : '') || mat.partNumber || Math.random().toString(36).substring(2, 7);
       issues.push({
-        id: `dqi-qty-${mat.partNumber}`,
+        id: `dqi-qty-${matKey}`,
         type: 'INVALID_QUANTITY',
         severity: 'CRITICAL',
-        recordId: mat.partNumber,
-        recordTitle: mat.name || mat.partNumber,
+        recordId: mat.partNumber || matKey,
+        recordTitle: mat.name || mat.description?.slice(0, 35) || mat.partNumber || 'Unnamed Material',
         reason: `Recorded stock quantity (${mat.quantity}) is invalid or negative.`,
         suggestedFix: 'Reset quantity to 0 or adjust to physical stock audit count.',
         suggestedValue: 0,
@@ -282,12 +293,13 @@ export function scanDataQualityIssues(materials: Material[]): DataQualityIssue[]
 
     // 4. Missing Warehouse Location
     if (!mat.warehouse || mat.warehouse.trim().length === 0) {
+      const matKey = mat.id || (mat.sequence !== undefined ? `seq-${mat.sequence}` : '') || mat.partNumber || Math.random().toString(36).substring(2, 7);
       issues.push({
-        id: `dqi-loc-${mat.partNumber}`,
+        id: `dqi-loc-${matKey}`,
         type: 'INVALID_LOCATION',
         severity: 'MEDIUM',
-        recordId: mat.partNumber,
-        recordTitle: mat.name || mat.partNumber,
+        recordId: mat.partNumber || matKey,
+        recordTitle: mat.name || mat.description?.slice(0, 35) || mat.partNumber || 'Unnamed Material',
         reason: 'Material has no assigned storage warehouse or bay.',
         suggestedFix: 'Assign warehouse location from approved master warehouse directory.',
         suggestedValue: 'Main Central Warehouse',
@@ -375,7 +387,7 @@ export function performGlobalSearch(query: string): GlobalSearchResults {
   const external = dbService.getExternalMaterials() || [];
 
   // Search Materials
-  materials.forEach(m => {
+  materials.forEach((m, idx) => {
     const pn = (m.partNumber || '').toLowerCase();
     const sn = (m.serialNumber || '').toLowerCase();
     const name = (m.name || '').toLowerCase();
@@ -385,17 +397,19 @@ export function performGlobalSearch(query: string): GlobalSearchResults {
     const model = (m.model || '').toLowerCase();
     const site = (m.site || '').toLowerCase();
     const wh = (m.warehouse || '').toLowerCase();
+    const matKey = m.id || (m.sequence !== undefined ? `seq-${m.sequence}` : '') || m.partNumber || `sr-mat-${idx}`;
+    const displayName = m.name || m.description?.slice(0, 40) || (m.partNumber ? m.partNumber : `Material #${m.sequence || idx + 1}`);
 
-    const isExactPn = pn === cleanQuery;
-    const isExactModel = model === cleanQuery;
-    const isExactSn = sn === cleanQuery;
+    const isExactPn = pn && pn === cleanQuery;
+    const isExactModel = model && model === cleanQuery;
+    const isExactSn = sn && sn === cleanQuery;
 
     if (isExactPn || isExactModel || isExactSn) {
       results.exactMatches.push({
-        id: m.partNumber,
+        id: matKey,
         type: 'EXACT_MATERIAL',
-        title: m.name || m.partNumber,
-        subtitle: `${m.manufacturer} • ${m.model} (${m.site || 'Site'} - ${m.warehouse || 'Store'})`,
+        title: displayName,
+        subtitle: `${m.manufacturer || 'OEM'} • ${m.model || 'Model'} (${m.site || 'Site'} - ${m.warehouse || 'Store'})`,
         partNumber: m.partNumber,
         location: `${m.site || 'Site'} / ${m.warehouse || 'Warehouse'}`,
         quantity: m.quantity,
@@ -405,7 +419,7 @@ export function performGlobalSearch(query: string): GlobalSearchResults {
         rawItem: m
       });
     } else if (
-      pn.includes(cleanQuery) || 
+      (pn && pn.includes(cleanQuery)) || 
       name.includes(cleanQuery) || 
       desc.includes(cleanQuery) || 
       arDesc.includes(cleanQuery) ||
@@ -415,15 +429,15 @@ export function performGlobalSearch(query: string): GlobalSearchResults {
       wh.includes(cleanQuery)
     ) {
       results.materials.push({
-        id: m.partNumber,
+        id: matKey,
         type: 'MATERIAL',
-        title: m.name || m.partNumber,
-        subtitle: `${m.manufacturer} • PN: ${m.partNumber}`,
+        title: displayName,
+        subtitle: `${m.manufacturer || 'OEM'} • ${m.partNumber ? `PN: ${m.partNumber}` : `Seq #${m.sequence || idx + 1}`}`,
         partNumber: m.partNumber,
         location: `${m.warehouse || 'Warehouse'} (Rack: ${m.rack || 'N/A'})`,
         quantity: m.quantity,
         unit: m.unit,
-        badge: `${m.quantity} ${m.unit}`,
+        badge: `${m.quantity} ${m.unit || 'EA'}`,
         rawItem: m
       });
     }

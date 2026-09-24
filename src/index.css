@@ -36,6 +36,30 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* ==========================================================================
+   Mobile Safe Area & Notch / Punch-Hole & Status Bar Insets
+   ========================================================================== */
+:root {
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --app-safe-top-padding: 2.25rem; /* ~36px default safe clearance for mobile notch/status bar */
+}
+
+/* Mobile top navigation header with safe area clearance */
+.mobile-safe-top-header {
+  padding-top: max(env(safe-area-inset-top, 0px), var(--app-safe-top-padding, 2.25rem));
+}
+
+/* Mobile bottom navigation bar with safe gesture area clearance */
+.mobile-safe-bottom-nav {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.35rem);
+}
+
+/* Mobile navigation drawer safe top */
+.mobile-safe-drawer-top {
+  padding-top: max(env(safe-area-inset-top, 0px), var(--app-safe-top-padding, 2rem));
+}
+
 html.dark body,
 body.dark {
   background-color: #0b1120;

@@ -164,7 +164,7 @@ export default function MaterialIntelligenceTab({
                   </td>
                 </tr>
               ) : (
-                filteredMaterials.map(m => {
+                filteredMaterials.map((m, idx) => {
                   const health = dbService.calculateMaterialHealthScore(m);
                   const isHealthy = health.grade === 'HEALTHY';
                   const isAttention = health.grade === 'ATTENTION';
@@ -172,7 +172,7 @@ export default function MaterialIntelligenceTab({
                   const isCritical = health.grade === 'CRITICAL';
 
                   return (
-                    <tr key={m.partNumber} className="hover:bg-industrial-850/50 transition-colors">
+                    <tr key={m.id || (m.sequence !== undefined ? `mat-seq-${m.sequence}` : '') || m.partNumber || `mat-intel-${idx}`} className="hover:bg-industrial-850/50 transition-colors">
                       {/* Part Number & Specs */}
                       <td className="py-3 px-4">
                         <div className="font-bold font-mono text-white flex items-center gap-1.5">

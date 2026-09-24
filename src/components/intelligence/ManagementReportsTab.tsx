@@ -443,9 +443,9 @@ export default function ManagementReportsTab({
                 </tr>
               </thead>
               <tbody className="divide-y divide-industrial-800">
-                {rejections.map(m => (
-                  <tr key={m.partNumber} className="hover:bg-industrial-850/50">
-                    <td className="py-2.5 px-3 font-mono font-bold text-white">{m.partNumber}</td>
+                {rejections.map((m, idx) => (
+                  <tr key={m.id || (m.sequence !== undefined ? `mat-seq-${m.sequence}` : '') || m.partNumber || `rej-${idx}`} className="hover:bg-industrial-850/50">
+                    <td className="py-2.5 px-3 font-mono font-bold text-white">{m.partNumber || '—'}</td>
                     <td className="py-2.5 px-3 text-industrial-200">{m.description}</td>
                     <td className="py-2.5 px-3 text-industrial-400">{m.manufacturer || 'OEM'}</td>
                     <td className="py-2.5 px-3 text-industrial-300 font-mono">{m.store || 'NDGS'}</td>
@@ -473,9 +473,9 @@ export default function ManagementReportsTab({
                 </tr>
               </thead>
               <tbody className="divide-y divide-industrial-800">
-                {missingDocs.map(m => (
-                  <tr key={m.partNumber} className="hover:bg-industrial-850/50">
-                    <td className="py-2.5 px-3 font-mono font-bold text-white">{m.partNumber}</td>
+                {missingDocs.map((m, idx) => (
+                  <tr key={m.id || (m.sequence !== undefined ? `mat-seq-${m.sequence}` : '') || m.partNumber || `miss-doc-${idx}`} className="hover:bg-industrial-850/50">
+                    <td className="py-2.5 px-3 font-mono font-bold text-white">{m.partNumber || '—'}</td>
                     <td className="py-2.5 px-3 text-industrial-200">{m.description}</td>
                     <td className="py-2.5 px-3 text-industrial-300 font-mono">{m.store || 'NDGS'}</td>
                     <td className="py-2.5 px-3 text-right">

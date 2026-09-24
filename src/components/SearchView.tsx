@@ -1010,9 +1010,9 @@ export default function SearchView({ materials: rawMaterials = [], currentUser, 
                                 <span>قطع الغيار الشائعة / Frequently Accessed Parts</span>
                               </span>
                             </div>
-                            {matchingParts.map((part) => (
+                            {matchingParts.map((part, idx) => (
                               <div
-                                key={part.partNumber}
+                                key={part.partNumber ? `matching-${part.partNumber}` : `matching-part-${idx}`}
                                 onClick={() => handleInspectPartNumberFromHistory(part.partNumber)}
                                 className="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white dark:hover:bg-industrial-800 border border-transparent hover:border-amber-200 dark:hover:border-amber-800 transition-colors cursor-pointer group shadow-2xs"
                               >
@@ -1676,7 +1676,7 @@ export default function SearchView({ materials: rawMaterials = [], currentUser, 
                   const { material, matchCategory, computedStatus, isBlacklisted, blacklistDetails, priorityRank } = result;
                   return (
                     <motion.div
-                      key={`${material.partNumber}-${idx}`}
+                      key={`${material.id || (material.sequence !== undefined ? `seq-${material.sequence}` : '') || material.partNumber || 'mat'}-${idx}`}
                       whileHover={{ y: -2 }}
                       className={`bg-white dark:bg-industrial-850 p-5 rounded-2xl border shadow-xs flex flex-col justify-between transition-all cursor-pointer relative overflow-hidden ${
                         isBlacklisted

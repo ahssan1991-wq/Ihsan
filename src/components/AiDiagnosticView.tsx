@@ -43,7 +43,8 @@ import {
   testFirestorePing,
   getDiagnosticTelemetryLogs, 
   clearDiagnosticTelemetryLogs,
-  recordDiagnosticTelemetry
+  recordDiagnosticTelemetry,
+  isCapacitorOrMobileApp
 } from '../services/apiClient';
 
 interface MatrixNodeState {
@@ -101,11 +102,7 @@ export const AiDiagnosticView: React.FC = () => {
   const [savedUrlSuccess, setSavedUrlSuccess] = useState<boolean>(false);
 
   // Platform info
-  const isCapacitor = typeof window !== 'undefined' && (
-    (window as any).Capacitor !== undefined || 
-    window.location.protocol === 'capacitor:' || 
-    window.location.protocol === 'file:'
-  );
+  const isCapacitor = isCapacitorOrMobileApp();
 
   useEffect(() => {
     const handleOnline = () => {
@@ -218,12 +215,17 @@ export const AiDiagnosticView: React.FC = () => {
     const res = await testGeminiPing();
     const checkedTime = new Date().toLocaleTimeString('ar-EG');
     if (res.success) {
+      const isOfflineEng = (res as any).isOfflineEngine;
       setGeminiMatrix({
         status: 'healthy',
         latency: res.durationMs,
         lastChecked: checkedTime,
-        details: `Model Active: ${res.model || 'gemini-3.8-flash'}`,
-        subDetails: `Probe response: "${res.probeReply}" | Latency: ${res.durationMs}ms`,
+        details: isOfflineEng 
+          ? `Engine Ready: ${(res as any).model || 'EMIS Intelligent Engine'}`
+          : `Model Active: ${res.model || 'gemini-3.8-flash'}`,
+        subDetails: isOfflineEng
+          ? 'Rule-based substitutes, OCR heuristics, and specs active'
+          : `Probe response: "${res.probeReply || 'OK'}" | Latency: ${res.durationMs}ms`,
         error: null,
         rawError: null
       });
@@ -248,14 +250,17 @@ export const AiDiagnosticView: React.FC = () => {
     const checkedTime = new Date().toLocaleTimeString('ar-EG');
     if (res.success) {
       const isPending = (res.pendingSyncCount ?? 0) > 0;
+      const count = res.localCount ?? res.documentCount ?? 0;
       setLocalDbMatrix({
         status: isPending ? 'warning' : 'healthy',
         latency: res.durationMs,
         lastChecked: checkedTime,
         details: isPending 
           ? `Pending Sync Queue (${res.pendingSyncCount} mutations)` 
-          : `Fully Synchronized (${res.localCount ?? res.documentCount} items)`,
-        subDetails: `Local: ${res.localCount} items | Server: ${res.documentCount} items | Latency: ${res.durationMs}ms`,
+          : `Fully Synchronized (${count} items)`,
+        subDetails: (res as any).isOfflineMode
+          ? `Local Offline Ledger Ready (${count} items) | Latency: ${res.durationMs}ms`
+          : `Local: ${res.localCount} items | Server: ${res.documentCount} items | Latency: ${res.durationMs}ms`,
         error: null,
         rawError: null
       });

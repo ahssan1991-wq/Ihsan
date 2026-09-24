@@ -1144,7 +1144,7 @@ export default function AdminDashboard({ currentUser, onNavigateTab }: AdminDash
                   )}
 
                   {criticalTestResult.error && (
-                    <div className="text-[10.5px] font-mono p-2 rounded bg-rose-100/50 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300">
+                    <div className="text-[10.5px] p-2 rounded bg-rose-100/50 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300 font-sans leading-relaxed" dir="auto">
                       {criticalTestResult.error}
                     </div>
                   )}
@@ -1170,10 +1170,10 @@ export default function AdminDashboard({ currentUser, onNavigateTab }: AdminDash
                         <AlertTriangle className="w-4 h-4 text-rose-600" />
                       )}
                       {testResult.success
-                        ? 'SMTP Delivery Confirmed'
+                        ? 'تم تأكيد تسليم البريد عبر SMTP / SMTP Delivery Confirmed'
                         : testResult.status === 'NOT_CONFIGURED'
-                        ? 'SMTP Configuration Required'
-                        : 'SMTP Delivery Failed'}
+                        ? 'يلزم ضبط إعدادات خادم البريد (SMTP) / SMTP Configuration Required'
+                        : 'تعذر إرسال البريد عبر SMTP / SMTP Delivery Failed'}
                     </span>
                     <span className="text-[10px] font-mono">
                       {new Date(testResult.timestamp || Date.now()).toLocaleTimeString()}
@@ -1192,7 +1192,7 @@ export default function AdminDashboard({ currentUser, onNavigateTab }: AdminDash
                         ? 'bg-white/80 dark:bg-black/30 text-amber-900 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40'
                         : 'bg-white/80 dark:bg-black/30 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/40'
                     }`}>
-                      <div className="font-mono text-[11px] leading-relaxed">{testResult.error}</div>
+                      <div className="text-[11px] leading-relaxed font-sans" dir="auto">{testResult.error}</div>
                       
                       {(testResult.error.includes('535') || testResult.error.includes('App Password') || testResult.error.includes('BadCredentials') || testResult.error.includes('Username and Password not accepted')) && (
                         <div className="pt-2 border-t border-rose-200/80 dark:border-rose-800/50 space-y-1.5 text-xs">

@@ -22,7 +22,8 @@ import {
   Activity, 
   Settings,
   HardDrive,
-  ExternalLink
+  ExternalLink,
+  Smartphone
 } from 'lucide-react';
 import { User, UserRole } from '../types';
 import { useLanguage, SUPPORTED_LANGUAGES } from '../contexts/LanguageContext';
@@ -46,6 +47,24 @@ export default function UserSettingsModal({
 }: UserSettingsModalProps) {
   const { language, setLanguage, isRTL, t } = useLanguage();
   const { isDark, toggleTheme } = useTheme();
+
+  const [headerPadding, setHeaderPadding] = React.useState<string>(() => {
+    try {
+      return localStorage.getItem('emis_header_safe_padding') || '2.25rem';
+    } catch {
+      return '2.25rem';
+    }
+  });
+
+  const handleHeaderPaddingChange = (val: string) => {
+    setHeaderPadding(val);
+    try {
+      localStorage.setItem('emis_header_safe_padding', val);
+      document.documentElement.style.setProperty('--app-safe-top-padding', val);
+    } catch {
+      // ignore storage issues
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -250,6 +269,45 @@ export default function UserSettingsModal({
                 >
                   {isRTL ? 'تبديل المظهر' : 'Toggle Theme'}
                 </button>
+              </div>
+
+              {/* Mobile Status Bar & Notch Clearance Setting */}
+              <div className="p-2.5 bg-industrial-800 border border-industrial-700 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs">
+                    <Smartphone className="h-4 w-4 text-brand-400" />
+                    <div>
+                      <span className="text-white font-medium block">
+                        {isRTL ? 'إزاحة شريط التطبيق العلوي للهواتف' : 'Mobile Top Bar Clearance'}
+                      </span>
+                      <span className="text-[10px] text-industrial-400">
+                        {isRTL ? 'لحل مشكلة التداخل مع الكاميرا المثقوبة أو شريط الحالة' : 'Clearance for phone status bar, camera hole & notch'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-4 gap-1.5 pt-1">
+                  {[
+                    { val: '1rem', label: isRTL ? 'مضغوط (16px)' : 'Compact (16px)' },
+                    { val: '2.25rem', label: isRTL ? 'افتراضي (36px)' : 'Default (36px)' },
+                    { val: '3rem', label: isRTL ? 'عريض (48px)' : 'Tall (48px)' },
+                    { val: '3.75rem', label: isRTL ? 'فائق (60px)' : 'Max (60px)' },
+                  ].map((option) => (
+                    <button
+                      key={option.val}
+                      type="button"
+                      onClick={() => handleHeaderPaddingChange(option.val)}
+                      className={`py-1.5 px-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer text-center border ${
+                        headerPadding === option.val
+                          ? 'bg-brand-600 text-white border-brand-400 shadow-xs shadow-brand-500/30'
+                          : 'bg-industrial-750 hover:bg-industrial-700 text-industrial-300 border-industrial-650'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 

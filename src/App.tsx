@@ -56,6 +56,7 @@ import { PreventiveMaintenanceView } from './components/PreventiveMaintenanceVie
 import { WorkflowApprovalsView } from './components/WorkflowApprovalsView';
 import { LiveBarcodeScannerModal } from './components/LiveBarcodeScannerModal';
 import { OrganizationSettingsModal } from './components/OrganizationSettingsModal';
+import DeviceInstallModal from './components/DeviceInstallModal';
 import { softDeleteRecord } from './services/port13Service';
 
 import { 
@@ -80,7 +81,8 @@ import {
   ArrowLeft,
   ArrowRight,
   Command,
-  Building2
+  Building2,
+  Download
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useLanguage } from './contexts/LanguageContext';
@@ -113,6 +115,7 @@ export default function App() {
   const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false);
   const [isLiveScannerOpen, setIsLiveScannerOpen] = useState(false);
   const [isOrganizationSettingsOpen, setIsOrganizationSettingsOpen] = useState(false);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
 
   // Material Intelligence Modal State (Port 9)
   const [intelligenceMaterial, setIntelligenceMaterial] = useState<Material | null>(null);
@@ -137,6 +140,11 @@ export default function App() {
   const [isQuickNavOpen, setIsQuickNavOpen] = useState<boolean>(false);
 
   const navigateToTab = (tabId: string, query: string = '', prefillData?: Record<string, string | null>) => {
+    if (tabId === 'install-app') {
+      setIsInstallModalOpen(true);
+      return;
+    }
+
     if (prefillData) {
       setPrefilledScanData(prefillData);
     }
@@ -277,19 +285,23 @@ export default function App() {
     }
   };
 
-  const handleDeleteMaterial = (partNumber: string) => {
+  const handleDeleteMaterial = (partNumberOrId: string) => {
     if (!currentUser) return;
     // Port 13: Automatically preserve record in Recycle Bin with 90-day retention before ledger removal
-    const targetMat = materials.find(m => m.partNumber.toUpperCase() === partNumber.toUpperCase());
+    const targetMat = materials.find(m => 
+      (m.id && m.id === partNumberOrId) ||
+      (m.partNumber && m.partNumber.toUpperCase() === partNumberOrId.toUpperCase()) ||
+      (m.sequence !== undefined && String(m.sequence) === partNumberOrId)
+    );
     if (targetMat) {
       softDeleteRecord('Material', targetMat, currentUser, 'Soft deleted from materials catalog');
     }
-    const res = dbService.deleteMaterial(partNumber, currentUser);
+    const res = dbService.deleteMaterial(targetMat?.id || partNumberOrId, currentUser);
     if (res.success) {
       setMaterials(dbService.getMaterials());
       setActivities(dbService.getActivities());
       setEquipment(dbService.getEquipment());
-      triggerToast('success', `Moved to Recycle Bin (Recoverable for 90 days): ${partNumber}`);
+      triggerToast('success', `Moved to Recycle Bin (Recoverable for 90 days): ${targetMat?.partNumber || targetMat?.description?.slice(0, 30) || partNumberOrId}`);
     } else {
       triggerToast('error', res.error || 'Failed to delete material');
     }
@@ -724,10 +736,11 @@ export default function App() {
         onOpenWhatsNew={() => setIsWhatsNewOpen(true)}
         onSelectMaterial={(m) => setPassportMaterial(m)}
         recentTabs={recentTabs}
+        onOpenInstallModal={() => setIsInstallModalOpen(true)}
       />
 
-      {/* Main Operating Panel */}
-      <main className="flex-1 p-4 sm:p-6 lg:p-8 max-h-screen overflow-y-auto relative">
+      {/* Main Operating Panel with Safe Scrolling Area */}
+      <main className="flex-1 p-4 sm:p-6 lg:p-8 max-h-screen overflow-y-auto relative pb-32 lg:pb-8">
         {/* Desktop Top Header Bar with Connectivity, Quick Jump, Breadcrumbs & History */}
         <header className="hidden lg:flex flex-col gap-2.5 pb-3.5 mb-5 border-b border-industrial-200 dark:border-industrial-800 max-w-7xl mx-auto select-none">
           <div className="flex items-center justify-between">
@@ -857,6 +870,17 @@ export default function App() {
               >
                 <Building2 className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
                 <span>هوية المؤسسة</span>
+              </button>
+
+              {/* Direct PWA / Android APK Installation Button */}
+              <button
+                type="button"
+                onClick={() => setIsInstallModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-brand-600 hover:from-emerald-500 hover:to-brand-500 text-white text-xs font-bold transition-all cursor-pointer shadow-2xs group"
+                title={language === 'ar' ? 'تثبيت نظام EMIS بصيغة أندرويد APK أو على الجهاز' : 'Install EMIS as Android APK or Desktop App'}
+              >
+                <Smartphone className="h-3.5 w-3.5 text-emerald-100 group-hover:scale-110 transition-transform" />
+                <span>{language === 'ar' ? 'تثبيت أندرويد APK' : 'Install Android APK'}</span>
               </button>
 
               <button
@@ -1060,8 +1084,14 @@ export default function App() {
         onClose={() => setIsOrganizationSettingsOpen(false)}
       />
 
+      {/* EMIS Device & PWA Direct Installation Modal */}
+      <DeviceInstallModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+      />
+
       {/* Floating Interactive Quick-Action Speed Dial */}
-      <div className="fixed bottom-20 lg:bottom-6 right-5 z-40 flex flex-col items-end gap-2.5">
+      <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] lg:bottom-6 right-5 z-40 flex flex-col items-end gap-2.5">
         <AnimatePresence>
           {isFabOpen && (
             <motion.div
@@ -1071,6 +1101,21 @@ export default function App() {
               transition={{ duration: 0.15 }}
               className="flex flex-col items-end gap-2"
             >
+              {/* Direct Device / PWA Installation Shortcut */}
+              <button
+                onClick={() => {
+                  setIsInstallModalOpen(true);
+                  setIsFabOpen(false);
+                }}
+                className="flex items-center gap-2.5 px-3.5 py-2 bg-gradient-to-r from-brand-900 to-indigo-950 text-brand-300 border border-brand-500/40 rounded-xl shadow-xl text-xs font-semibold backdrop-blur-md transition-all cursor-pointer group"
+                id="fab-install-app-direct"
+              >
+                <span className="text-[11px] text-white font-medium">📥 تثبيت التطبيق على جهازي (PWA)</span>
+                <div className="p-1.5 bg-brand-500/30 rounded-lg group-hover:scale-110 transition-transform">
+                  <Download className="h-4 w-4 text-brand-300" />
+                </div>
+              </button>
+
               {/* Port 16: Live Camera Scanner Shortcut */}
               <button
                 onClick={() => {

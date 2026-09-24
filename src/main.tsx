@@ -19,6 +19,18 @@ window.addEventListener('unhandledrejection', (event) => {
   }
 });
 
+// Initialize mobile safe-area spacing for Android status bar / notch / camera hole
+try {
+  const savedHeaderPadding = localStorage.getItem('emis_header_safe_padding');
+  if (savedHeaderPadding) {
+    document.documentElement.style.setProperty('--app-safe-top-padding', savedHeaderPadding);
+  } else {
+    document.documentElement.style.setProperty('--app-safe-top-padding', '2.25rem');
+  }
+} catch {
+  document.documentElement.style.setProperty('--app-safe-top-padding', '2.25rem');
+}
+
 window.addEventListener('error', (event) => {
   if (
     event.message &&

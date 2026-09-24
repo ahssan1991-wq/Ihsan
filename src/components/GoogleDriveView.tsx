@@ -466,21 +466,23 @@ export default function GoogleDriveView({ currentUser }: GoogleDriveViewProps) {
 
             {/* Error Fallback Banner */}
             {signInError && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-left space-y-2.5 max-w-md mx-auto">
-                <div className="flex items-center gap-2 text-red-850 font-bold text-xs">
-                  <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
-                  <span>خطأ في الاتصال / Connection Notice (APK / WebView)</span>
+              <div className="bg-red-50/90 border border-red-250 rounded-2xl p-4 sm:p-5 text-right space-y-3 max-w-md mx-auto shadow-xs" dir="rtl">
+                <div className="flex items-center gap-2.5 text-red-900 font-bold text-xs">
+                  <div className="p-1 bg-red-100 rounded-lg text-red-600 shrink-0">
+                    <AlertCircle className="h-4 w-4" />
+                  </div>
+                  <span>تنبيه الاتصال في تطبيق الأندرويد (APK / WebView)</span>
                 </div>
-                <p className="text-[11px] text-red-800 leading-relaxed font-sans">
-                  <strong>سبب عدم الاتصال في تطبيق الـ APK:</strong> تمنع سياسة أمان جوجل (Google Secure Browser Policy) تسجيل الدخول عبر النوافذ المنبثقة (Popups) داخل متصفحات الـ WebView المدمجة في تطبيقات الأندرويد.
+                <p className="text-[12px] text-red-800 leading-relaxed font-sans text-right">
+                  <strong>سبب التنبيه في تطبيق APK:</strong> تمنع سياسة أمان جوجل (Google Secure Browser Policy) تسجيل الدخول عبر النوافذ المنبثقة داخل متصفحات الـ WebView المدمجة في تطبيقات الهاتف. يمكنك فوراً تفعيل الحاوية التخزينية الميدانية لحفظ ورفع الملفات محلياً.
                 </p>
                 <div className="pt-1">
                   <button
                     type="button"
                     onClick={handleActivateSandbox}
-                    className="w-full bg-indigo-650 hover:bg-indigo-700 text-white font-bold text-xs py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xs py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm hover:shadow-md"
                   >
-                    <HardDrive className="h-4 w-4" />
+                    <HardDrive className="h-4 w-4 shrink-0 text-white" />
                     <span>تفعيل الحاوية التخزينية الميدانية فوراً (Local Field Vault)</span>
                   </button>
                 </div>
@@ -492,7 +494,7 @@ export default function GoogleDriveView({ currentUser }: GoogleDriveViewProps) {
               <button
                 onClick={handleSignIn}
                 disabled={isLoading}
-                className="gsi-material-button w-full sm:w-auto max-w-xs flex justify-center border border-industrial-250 bg-white hover:bg-industrial-50 transition-colors shadow-3xs rounded-lg py-2.5 px-5 cursor-pointer disabled:opacity-50"
+                className="gsi-material-button w-full sm:w-auto max-w-xs flex justify-center border border-industrial-250 bg-white hover:bg-industrial-50 transition-colors shadow-3xs rounded-xl py-2.5 px-5 cursor-pointer disabled:opacity-50"
               >
                 <div className="gsi-material-button-content-wrapper flex items-center justify-center gap-3">
                   <div className="gsi-material-button-icon shrink-0">
@@ -514,7 +516,7 @@ export default function GoogleDriveView({ currentUser }: GoogleDriveViewProps) {
                 type="button"
                 onClick={handleActivateSandbox}
                 disabled={isLoading}
-                className="w-full sm:w-auto max-w-xs flex items-center justify-center gap-2 bg-industrial-100 hover:bg-industrial-200 border border-industrial-300 text-industrial-800 font-bold text-xs py-2.5 px-5 rounded-lg transition-colors cursor-pointer"
+                className="w-full sm:w-auto max-w-xs flex items-center justify-center gap-2 bg-indigo-50 hover:bg-indigo-100 active:bg-indigo-200 border border-indigo-200 text-indigo-900 font-bold text-xs py-2.5 px-5 rounded-xl transition-colors cursor-pointer shadow-3xs"
               >
                 <HardDrive className="h-4 w-4 text-indigo-600" />
                 <span>تشغيل الحاوية الميدانية / Field Storage Vault</span>
@@ -522,12 +524,12 @@ export default function GoogleDriveView({ currentUser }: GoogleDriveViewProps) {
             </div>
 
             {/* Explanatory Note for APK and Mobile users */}
-            <div className="bg-industrial-50 border border-industrial-200 rounded-xl p-3.5 text-left text-[11px] text-industrial-600 leading-relaxed font-sans space-y-1 mt-3">
-              <p className="font-bold text-industrial-800 flex items-center gap-1.5">
-                <span>📱</span> ملاحظة لمستخدمي تطبيق الأندرويد (APK):
+            <div className="bg-industrial-50 border border-industrial-200 rounded-2xl p-4 text-right text-[11px] text-industrial-700 leading-relaxed font-sans space-y-1.5 mt-3 max-w-md mx-auto" dir="rtl">
+              <p className="font-bold text-industrial-900 flex items-center gap-1.5 text-right">
+                <span className="text-base">📱</span> <span>ملاحظة لمستخدمي تطبيق الهاتف (APK):</span>
               </p>
-              <p>
-                إذا كنت تستخدم نسخة الـ APK على الهاتف، يمكنك الضغط على <strong>"تشغيل الحاوية الميدانية"</strong> لحفظ وتصفح ورفع ملفات المواصفات والتقارير محلياً على الجهاز بدون إنترنت.
+              <p className="text-industrial-600">
+                إذا كنت تستخدم نسخة الـ APK على الهاتف، اضغط مباشرة على <strong>"تشغيل الحاوية الميدانية"</strong> أعلاه لحفظ وتصفح ورفع ملفات المواصفات والتقارير الفنية محلياً بأمان وبدون إنترنت.
               </p>
             </div>
           </motion.div>

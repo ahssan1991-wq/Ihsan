@@ -40,7 +40,9 @@ import {
   Command, 
   FolderMinus, 
   FolderPlus,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Download,
+  Smartphone
 } from 'lucide-react';
 import { User as UserType, UserRole, Material } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -60,6 +62,7 @@ interface NavigationProps {
   onOpenWhatsNew?: () => void;
   onSelectMaterial?: (material: Material) => void;
   recentTabs?: string[];
+  onOpenInstallModal?: () => void;
 }
 
 export default function Navigation({ 
@@ -69,7 +72,8 @@ export default function Navigation({
   onLogout,
   onOpenWhatsNew,
   onSelectMaterial,
-  recentTabs = []
+  recentTabs = [],
+  onOpenInstallModal
 }: NavigationProps) {
   const { language, t, isRTL } = useLanguage();
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
@@ -219,59 +223,66 @@ export default function Navigation({
 
   return (
     <>
-      {/* MOBILE TOP HEADER */}
-      <header className="lg:hidden h-14 bg-industrial-900 border-b border-industrial-800 px-3 flex items-center justify-between sticky top-0 z-40 text-white select-none gap-2">
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="p-1.5 bg-brand-600/20 border border-brand-500/30 rounded-lg">
-            <Cpu className="h-4 w-4 text-brand-500" />
+      {/* MOBILE TOP HEADER WITH SAFE AREA CLEARANCE (NOTCH & STATUS BAR) */}
+      <header className="lg:hidden bg-industrial-900/98 backdrop-blur-md border-b border-industrial-800 px-3 sticky top-0 z-40 text-white select-none mobile-safe-top-header transition-all duration-150">
+        <div className="h-14 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="p-1.5 bg-brand-600/20 border border-brand-500/30 rounded-lg">
+              <Cpu className="h-4 w-4 text-brand-500" />
+            </div>
+            <div>
+              <span className="font-bold tracking-tight heading-display text-xs">EMIS</span>
+              <span className="text-[9px] text-brand-400 font-mono ml-1 px-1 py-0.2 rounded bg-brand-500/15 border border-brand-500/30 font-bold">v3.1</span>
+            </div>
           </div>
-          <div>
-            <span className="font-bold tracking-tight heading-display text-xs">EMIS</span>
-            <span className="text-[9px] text-brand-400 font-mono ml-1 px-1 py-0.2 rounded bg-brand-500/15 border border-brand-500/30 font-bold">v3.1</span>
+
+          {/* Global Search on Mobile */}
+          <div className="flex-1 max-w-xs mx-1">
+            <GlobalHeaderSearch
+              onSelectMaterial={onSelectMaterial}
+              onNavigateToTab={handleTabClick}
+            />
           </div>
-        </div>
+          
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Quick Switcher Trigger (Mobile) */}
+            <button
+              type="button"
+              onClick={() => setIsQuickSwitcherOpen(true)}
+              className="p-2 min-h-[38px] min-w-[38px] flex items-center justify-center rounded-lg bg-brand-600/20 hover:bg-brand-600/30 active:bg-brand-600/40 text-brand-300 border border-brand-500/30 transition-colors cursor-pointer"
+              title={language === 'ar' ? 'التنقل السريع بين القوائم' : 'Quick Navigation'}
+              aria-label="Quick Switcher"
+            >
+              <Command className="h-4 w-4" />
+            </button>
 
-        {/* Global Search on Mobile */}
-        <div className="flex-1 max-w-xs mx-1">
-          <GlobalHeaderSearch
-            onSelectMaterial={onSelectMaterial}
-            onNavigateToTab={handleTabClick}
-          />
-        </div>
-        
-        <div className="flex items-center gap-1.5 shrink-0">
-          {/* Quick Switcher Trigger (Mobile) */}
-          <button
-            type="button"
-            onClick={() => setIsQuickSwitcherOpen(true)}
-            className="p-1.5 rounded-lg bg-brand-600/20 hover:bg-brand-600/30 text-brand-300 border border-brand-500/30 transition-colors cursor-pointer"
-            title={language === 'ar' ? 'التنقل السريع بين القوائم' : 'Quick Navigation'}
-          >
-            <Command className="h-3.5 w-3.5" />
-          </button>
+            {/* Action Center Trigger */}
+            <button
+              type="button"
+              onClick={() => handleTabClick('action-center')}
+              className="relative p-2 min-h-[38px] min-w-[38px] flex items-center justify-center rounded-lg bg-industrial-800 hover:bg-industrial-750 active:bg-industrial-700 text-industrial-200 border border-industrial-700 transition-colors cursor-pointer"
+              title="Action Center"
+              aria-label="Action Center"
+            >
+              <BellRing className="h-4 w-4 text-amber-400" />
+              {actionItemCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white font-bold text-[8px] rounded-full flex items-center justify-center border border-industrial-900 animate-pulse">
+                  {actionItemCount > 9 ? '9+' : actionItemCount}
+                </span>
+              )}
+            </button>
 
-          {/* Action Center Trigger */}
-          <button
-            onClick={() => handleTabClick('action-center')}
-            className="relative p-1.5 rounded-lg bg-industrial-800 hover:bg-industrial-750 text-industrial-200 border border-industrial-700 transition-colors cursor-pointer"
-            title="Action Center"
-          >
-            <BellRing className="h-3.5 w-3.5 text-amber-400" />
-            {actionItemCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-500 text-white font-bold text-[8px] rounded-full flex items-center justify-center border border-industrial-900 animate-pulse">
-                {actionItemCount > 9 ? '9+' : actionItemCount}
-              </span>
-            )}
-          </button>
-
-          {/* Centralized User Settings Trigger */}
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="p-1.5 rounded-lg bg-industrial-800 hover:bg-industrial-750 text-industrial-200 border border-industrial-700 transition-colors cursor-pointer"
-            title="User Profile & Settings"
-          >
-            <Settings className="h-3.5 w-3.5" />
-          </button>
+            {/* Centralized User Settings Trigger */}
+            <button
+              type="button"
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-2 min-h-[38px] min-w-[38px] flex items-center justify-center rounded-lg bg-industrial-800 hover:bg-industrial-750 active:bg-industrial-700 text-industrial-200 border border-industrial-700 transition-colors cursor-pointer"
+              title="User Profile & Settings"
+              aria-label="User Settings"
+            >
+              <Settings className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -297,8 +308,8 @@ export default function Navigation({
               className="relative w-4/5 max-w-sm bg-industrial-900 border-r border-industrial-800 h-full flex flex-col z-10 text-white shadow-2xl"
               dir={isRTL ? 'rtl' : 'ltr'}
             >
-              {/* Drawer Top */}
-              <div className="p-4 border-b border-industrial-800 flex items-center justify-between">
+              {/* Drawer Top with Safe Notch Clearance */}
+              <div className="p-4 border-b border-industrial-800 flex items-center justify-between mobile-safe-drawer-top">
                 <div className="flex items-center gap-2.5">
                   <div className="p-1.5 bg-brand-600/20 border border-brand-500/30 rounded-lg">
                     <Cpu className="h-5 w-5 text-brand-500" />
@@ -407,6 +418,21 @@ export default function Navigation({
 
               {/* Drawer Bottom Actions */}
               <div className="p-3 border-t border-industrial-800 space-y-2">
+                {/* Install App on Device Button (Mobile) */}
+                <button
+                  onClick={() => {
+                    setIsMobileDrawerOpen(false);
+                    if (onOpenInstallModal) onOpenInstallModal();
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2 bg-gradient-to-r from-emerald-600/20 to-teal-600/20 hover:from-emerald-600/30 hover:to-teal-600/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-2xs"
+                >
+                  <div className="flex items-center gap-2">
+                    <Smartphone className="h-4 w-4 text-emerald-400" />
+                    <span>{language === 'ar' ? 'تثبيت بصيغة أندرويد (APK)' : 'Install Android (APK)'}</span>
+                  </div>
+                  <ChevronRight className={`h-3.5 w-3.5 text-emerald-400 ${isRTL ? 'rotate-180' : ''}`} />
+                </button>
+
                 <button
                   onClick={() => {
                     setIsMobileDrawerOpen(false);
@@ -434,8 +460,9 @@ export default function Navigation({
         )}
       </AnimatePresence>
 
-      {/* MOBILE BOTTOM NAVIGATION BAR */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-industrial-900/95 backdrop-blur-md border-t border-industrial-800 px-2 z-40 flex items-center justify-around text-white">
+      {/* MOBILE BOTTOM NAVIGATION BAR WITH SAFE GESTURE AREA */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-industrial-900/98 backdrop-blur-md border-t border-industrial-800 px-2 z-40 text-white mobile-safe-bottom-nav">
+        <div className="h-16 flex items-center justify-around w-full">
         {mobileBottomTabs.map((tab) => {
           const Icon = tab.icon;
           const isSelected = activeTab === tab.id;
@@ -484,6 +511,7 @@ export default function Navigation({
           </div>
           <span className="text-[10px] tracking-tight">{language === 'ar' ? 'القوائم' : 'Menus'}</span>
         </button>
+        </div>
       </nav>
 
       {/* DESKTOP SIDEBAR */}
@@ -685,6 +713,23 @@ export default function Navigation({
 
         {/* Bottom Actions & User Profile */}
         <div className="p-3 border-t border-industrial-800 space-y-2">
+          {/* Direct Install on Device Button (Desktop Sidebar) */}
+          <button
+            type="button"
+            onClick={() => {
+              if (onOpenInstallModal) onOpenInstallModal();
+            }}
+            className="w-full flex items-center justify-between px-2.5 py-1.8 bg-gradient-to-r from-emerald-600/15 to-brand-600/15 hover:from-emerald-600/25 hover:to-brand-600/25 border border-emerald-500/30 text-emerald-300 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-xs group"
+          >
+            <div className="flex items-center gap-2">
+              <Smartphone className="h-3.5 w-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
+              <span>{language === 'ar' ? 'تثبيت أندرويد (APK)' : 'Install Android (APK)'}</span>
+            </div>
+            <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-mono">
+              APK
+            </span>
+          </button>
+
           {onOpenWhatsNew && (
             <button
               onClick={onOpenWhatsNew}
