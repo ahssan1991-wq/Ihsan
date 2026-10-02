@@ -179,20 +179,52 @@ export function parseTechnicalQuery(query: string): ParsedSearchQuery {
 export function findExactMatches(query: string, materials: Material[]): Material[] {
   if (!query || !query.trim() || !materials || materials.length === 0) return [];
   const q = query.trim().toLowerCase();
-  const cleanQ = q.replace(/[^a-z0-9]/gi, '');
+  const cleanQ = q.replace(/[^a-z0-9]/gi, '').toLowerCase();
+  if (!cleanQ) return [];
+
+  // Stripped of common prefixes (e.g., "pnusfr02nd" -> "usfr02nd")
+  const cleanQWithoutPn = cleanQ.replace(/^(pn|part|model|sn|seq)/i, '');
+  const seqNumberQuery = q.replace(/^[#\s]*(?:seq|sequence)[\s#:]*/i, '').replace(/[^0-9]/g, '');
 
   return materials.filter(m => {
-    const cleanPn = m.partNumber.replace(/[^a-z0-9]/gi, '').toLowerCase();
-    const cleanMod = m.model.replace(/[^a-z0-9]/gi, '').toLowerCase();
-    const cleanSn = (m.serialNumber || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
-
-    // Exact part number, serial number, or model
-    if (cleanPn === cleanQ || cleanMod === cleanQ || (cleanSn && cleanSn === cleanQ)) {
+    // 1. Sequence match (e.g. 727, #727, Seq 727)
+    if (m.sequence !== undefined && seqNumberQuery && String(m.sequence) === seqNumberQuery) {
       return true;
     }
 
-    // Direct exact sub-string match on part number or model
-    if (m.partNumber.toLowerCase() === q || m.model.toLowerCase() === q) {
+    const cleanPn = (m.partNumber || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+    const cleanPnWithoutPn = cleanPn.replace(/^(pn|part)/i, '');
+
+    const cleanMod = (m.model || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+    const cleanModWithoutPn = cleanMod.replace(/^(pn|part|model)/i, '');
+
+    const cleanSn = (m.serialNumber || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+    const cleanDesc = (m.description || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+
+    // 2. Exact Part Number match (with or without PN prefix)
+    if (cleanPn && (cleanPn === cleanQ || (cleanQWithoutPn && (cleanPn === cleanQWithoutPn || cleanPnWithoutPn === cleanQWithoutPn)))) {
+      return true;
+    }
+
+    // 3. Exact Model match (e.g. "PN:USFR-02ND" matches "USFR-02ND")
+    if (cleanMod && (cleanMod === cleanQ || (cleanQWithoutPn && (cleanMod === cleanQWithoutPn || cleanModWithoutPn === cleanQWithoutPn || cleanModWithoutPn === cleanQ)))) {
+      return true;
+    }
+
+    // 4. Exact Serial Number
+    if (cleanSn && cleanSn === cleanQ) {
+      return true;
+    }
+
+    // 5. Direct exact substring match on Part Number or Model
+    if (m.partNumber && m.partNumber.toLowerCase() === q) return true;
+    if (m.model && m.model.toLowerCase() === q) return true;
+
+    // 6. Direct occurrence inside description (e.g. description contains "PN:USFR-02ND" or "USFR-02ND")
+    if (cleanQ.length >= 3 && cleanDesc.includes(cleanQ)) {
+      return true;
+    }
+    if (cleanQWithoutPn.length >= 3 && cleanDesc.includes(cleanQWithoutPn)) {
       return true;
     }
 

@@ -1,5 +1,5 @@
 // EMIS Industrial PWA Service Worker
-const CACHE_NAME = 'emis-pwa-v1';
+const CACHE_NAME = 'emis-pwa-v3';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
@@ -28,6 +28,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME) {
+            console.log('[PWA SW] Purging obsolete cache:', key);
             return caches.delete(key);
           }
         })
@@ -39,13 +40,17 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Always use live network for API endpoints, hot module reload, and websockets
+  // NEVER cache API endpoints, Vite modules, source code, node_modules, or WebSockets
   if (
     url.pathname.startsWith('/api') ||
     url.pathname.startsWith('/uploads') ||
-    url.pathname.startsWith('/@vite') ||
-    url.pathname.startsWith('/@fs') ||
-    url.pathname.startsWith('/@id') ||
+    url.pathname.startsWith('/@') ||
+    url.pathname.startsWith('/src') ||
+    url.pathname.startsWith('/node_modules') ||
+    url.pathname.endsWith('.tsx') ||
+    url.pathname.endsWith('.ts') ||
+    url.pathname.endsWith('.jsx') ||
+    url.pathname.endsWith('.js.map') ||
     url.pathname.includes('hot-update') ||
     url.protocol === 'ws:' ||
     url.protocol === 'wss:'
@@ -53,7 +58,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Stale-While-Revalidate for cached static assets, Network-First for navigation
+  // Navigation requests: Network first, fallback to cached index.html
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(async () => {
@@ -65,14 +70,18 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Static assets: cache with network fallback
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const fetchPromise = fetch(event.request).then((networkResponse) => {
         if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
+          // Only cache production static assets (e.g. /assets/ or static image files)
+          if (url.pathname.startsWith('/assets/') || url.pathname.endsWith('.png') || url.pathname.endsWith('.svg')) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
         }
         return networkResponse;
       }).catch(() => cachedResponse);

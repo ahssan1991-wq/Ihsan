@@ -18,17 +18,6 @@
     <meta property="og:title" content="EMIS – Engineering Material Intelligence System" />
     <meta property="og:description" content="EMIS – Engineering Material Intelligence System (Port 14 Operational Excellence) with Command Center, Action Center, Data Quality Engine, Global Instant Search, Unified Design System, and Multilingual Material Ledger." />
     <script>
-      // Register PWA service worker
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function() {
-          navigator.serviceWorker.register('/sw.js').then(function(reg) {
-            console.log('[PWA] Service Worker registered successfully, scope:', reg.scope);
-          }).catch(function(err) {
-            console.warn('[PWA] Service Worker registration failed:', err);
-          });
-        });
-      }
-
       // Suppress Vite HMR WebSocket notification overlays in sandboxed preview
       window.addEventListener('unhandledrejection', function(event) {
         var str = '';
@@ -52,8 +41,8 @@
         }
       }, true);
     </script>
-    <script type="module" crossorigin src="/assets/index-BdVcyzR9.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CBXvEtJB.css">
+    <script type="module" crossorigin src="/assets/index-Du--OW29.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-HrtU2pb5.css">
   </head>
   <body>
     <div id="root"></div>

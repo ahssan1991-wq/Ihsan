@@ -64,11 +64,10 @@ export function clearDiagnosticTelemetryLogs(): void {
 
 export function isCapacitorOrMobileApp(): boolean {
   if (typeof window === 'undefined') return false;
-  const isCapacitorGlobal = (window as any).Capacitor !== undefined;
+  // Only true native standalone capacitor or local file scheme
   const isCapacitorProtocol = window.location.protocol === 'capacitor:' || window.location.protocol === 'file:';
-  const isAndroid = typeof navigator !== 'undefined' && (/Android/i.test(navigator.userAgent) || /wv/i.test(navigator.userAgent));
-  const isLocalhostApp = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.location.port !== '3000';
-  return isCapacitorGlobal || isCapacitorProtocol || (isAndroid && window.location.hostname === 'localhost') || isLocalhostApp;
+  const isLocalhostApp = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.location.port !== '3000' && window.location.port !== '';
+  return isCapacitorProtocol || isLocalhostApp;
 }
 
 export function getBaseApiUrl(): string {
@@ -78,7 +77,15 @@ export function getBaseApiUrl(): string {
     return savedUrl.trim().replace(/\/+$/, '');
   }
 
-  // Check if running inside Android APK / Capacitor / File protocol / standalone
+  // When running in any web browser over HTTP or HTTPS, ALWAYS use relative URLs (same origin)
+  if (typeof window !== 'undefined' && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
+    if ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.location.port !== '3000' && window.location.port !== '') {
+      return 'http://localhost:3000';
+    }
+    return '';
+  }
+
+  // Check if running inside native Android APK / Capacitor standalone package
   if (isCapacitorOrMobileApp()) {
     return CLOUD_BACKEND_URL;
   }

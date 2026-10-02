@@ -564,131 +564,153 @@ export default function MaterialDetailsModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-industrial-950/70 backdrop-blur-xs overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-industrial-950/80 backdrop-blur-xs overflow-hidden">
       <motion.div
-        initial={{ opacity: 0, scale: 0.96 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.96 }}
-        className="bg-white dark:bg-industrial-900 border border-industrial-200 dark:border-industrial-700 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden my-6 flex flex-col max-h-[90vh]"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 20 }}
+        className="bg-white dark:bg-industrial-900 border-t sm:border border-industrial-200 dark:border-industrial-700 rounded-t-3xl sm:rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh]"
       >
-        {/* Header */}
-        <div className="p-5 sm:p-6 border-b border-industrial-200 dark:border-industrial-700 bg-industrial-50/50 dark:bg-industrial-850/50 flex items-start justify-between gap-4">
-          <div className="space-y-1.5 min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-xs font-bold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950/50 px-2.5 py-1 rounded-md border border-brand-200 dark:border-brand-800">
+        {/* Mobile Drag Handle */}
+        <div className="sm:hidden pt-2.5 pb-1 flex justify-center shrink-0">
+          <div className="w-12 h-1.5 rounded-full bg-industrial-300 dark:bg-industrial-700" />
+        </div>
+
+        {/* Header Container */}
+        <div className="p-4 sm:p-6 border-b border-industrial-200 dark:border-industrial-700 bg-industrial-50/70 dark:bg-industrial-850/70 shrink-0 space-y-3">
+          {/* Top Bar: Part Number + Status Badge on Left; Action Icons & Close on Right */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
+              <span className="font-mono text-xs sm:text-sm font-bold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950/50 px-2.5 py-1 rounded-lg border border-brand-200 dark:border-brand-800 shrink-0">
                 {currentMaterial.partNumber}
               </span>
-              <button
-                type="button"
-                onClick={handleCopyDirectLink}
-                className="text-[10.5px] font-mono font-medium px-2 py-1 rounded-md bg-industrial-100 hover:bg-industrial-200 dark:bg-industrial-800 dark:hover:bg-industrial-700 text-industrial-700 dark:text-industrial-300 transition-colors flex items-center gap-1 cursor-pointer border border-industrial-200 dark:border-industrial-700"
-                title="نسخ الرابط المباشر للوصول السريع إلى هذه المادة"
-              >
-                {isLinkCopied ? (
-                  <>
-                    <Check className="h-3 w-3 text-emerald-600" />
-                    <span className="text-emerald-600 font-bold">تم نسخ الرابط!</span>
-                  </>
-                ) : (
-                  <>
-                    <LinkIcon className="h-3 w-3" />
-                    <span>رابط مباشر للمادة</span>
-                  </>
-                )}
-              </button>
-              {currentMaterial.model && (
-                <span className="font-mono text-xs text-industrial-600 dark:text-industrial-300 bg-industrial-100 dark:bg-industrial-800 px-2.5 py-1 rounded-md">
-                  Model: {currentMaterial.model}
-                </span>
-              )}
-              {getStatusBadge()}
+              <div className="shrink-0">
+                {getStatusBadge()}
+              </div>
             </div>
 
-            <h3 className="text-base sm:text-lg font-bold text-industrial-900 dark:text-white leading-snug">
-              {currentMaterial.description}
-            </h3>
+            {/* Quick Action Buttons & Close */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* Direct button to Photos & Identifiers */}
+              <button
+                type="button"
+                onClick={() => setActiveTab('photos')}
+                className={`p-2 sm:px-3 sm:py-1.5 text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === 'photos'
+                    ? 'bg-blue-600 text-white shadow-blue-500/20'
+                    : 'bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                }`}
+                title="إدارة وتوثيق صور ومعرفات المادة"
+              >
+                <Camera className="h-4 w-4" />
+                <span className="hidden md:inline">الصور</span>
+                <span className="font-mono text-[10px] font-bold">({allPhotos.length})</span>
+              </button>
 
-            <p className="text-xs text-industrial-500 dark:text-industrial-400 flex items-center gap-2">
-              <span>{currentMaterial.manufacturer}</span>
-              <span>•</span>
-              <span className="font-mono">الكمية: {currentMaterial.quantity} {currentMaterial.unit}</span>
-              <span>•</span>
-              <span>الموقع: {currentMaterial.store} {currentMaterial.rack ? `(رف: ${currentMaterial.rack})` : ''}</span>
-            </p>
+              {onOpenPassport && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenPassport(currentMaterial);
+                  }}
+                  className="p-2 sm:px-3 sm:py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  title="جواز المرور الرقمي المعتمد للمادة (Digital Material Passport - Port 13)"
+                >
+                  <QrCode className="h-4 w-4" />
+                  <span className="hidden md:inline">الجواز الرقمي</span>
+                </button>
+              )}
+
+              {onOpenIntelligence && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenIntelligence(currentMaterial);
+                  }}
+                  className="p-2 sm:px-3 sm:py-1.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  title="استخبارات المواد والترجمة المتعددة اللغات والأدلة الرقمية"
+                >
+                  <Globe className="h-4 w-4" />
+                  <span className="hidden md:inline">الذكاء الفني</span>
+                </button>
+              )}
+
+              {onFindSubstitutes && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onFindSubstitutes(currentMaterial.partNumber);
+                  }}
+                  className="p-2 sm:px-3 sm:py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  title="البحث عن البدائل الهندسية المكافئة"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  <span className="hidden md:inline">البدائل الهندسية</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-2 text-industrial-400 hover:text-industrial-700 dark:hover:text-white rounded-xl hover:bg-industrial-200 dark:hover:bg-industrial-800 transition-colors cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Direct button to Photos & Identifiers */}
-            <button
-              onClick={() => setActiveTab('photos')}
-              className={`px-3 py-2 text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer ${
-                activeTab === 'photos'
-                  ? 'bg-blue-600 text-white shadow-blue-500/20 ring-2 ring-blue-400/30'
-                  : 'bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800'
-              }`}
-              title="إدارة وتوثيق صور ومعرفات المادة"
-            >
-              <Camera className="h-4 w-4" />
-              <span className="hidden sm:inline">صور ومعرفات المادة</span>
-              <span className="font-mono px-1.5 py-0.5 rounded-full text-[10px] bg-blue-200/70 dark:bg-blue-900/70 font-bold">
-                {allPhotos.length}
-              </span>
-            </button>
+          {/* Full-Width Description Headline */}
+          <div className="w-full">
+            <h3 className="text-sm sm:text-lg font-bold text-industrial-900 dark:text-white leading-normal break-words">
+              {currentMaterial.description}
+            </h3>
+          </div>
 
-            {onOpenPassport && (
-              <button
-                onClick={() => {
-                  onClose();
-                  onOpenPassport(currentMaterial);
-                }}
-                className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-                title="جواز المرور الرقمي المعتمد للمادة (Digital Material Passport - Port 13)"
-              >
-                <QrCode className="h-4 w-4" />
-                <span className="hidden sm:inline">جواز المرور الرقمي</span>
-              </button>
-            )}
+          {/* Metadata Row: Manufacturer, Quantity, Location, Model, Copy Link */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-industrial-600 dark:text-industrial-300 pt-0.5">
+            <span className="font-semibold text-industrial-900 dark:text-white">{currentMaterial.manufacturer}</span>
+            <span className="text-industrial-300 dark:text-industrial-600">·</span>
+            <span className="font-mono font-medium">الكمية: <strong className="text-industrial-900 dark:text-white">{currentMaterial.quantity}</strong> {currentMaterial.unit}</span>
+            <span className="text-industrial-300 dark:text-industrial-600">·</span>
+            <span>الموقع: <strong>{currentMaterial.store}</strong> {currentMaterial.rack ? `(رف: ${currentMaterial.rack})` : ''}</span>
 
-            {onOpenIntelligence && (
-              <button
-                onClick={() => {
-                  onClose();
-                  onOpenIntelligence(currentMaterial);
-                }}
-                className="px-3 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-                title="استخبارات المواد والترجمة المتعددة اللغات والأدلة الرقمية"
-              >
-                <Globe className="h-4 w-4" />
-                <span className="hidden sm:inline">استخبارات المواد</span>
-              </button>
-            )}
-
-            {onFindSubstitutes && (
-              <button
-                onClick={() => {
-                  onClose();
-                  onFindSubstitutes(currentMaterial.partNumber);
-                }}
-                className="px-3 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-                title="البحث عن البدائل الهندسية المكافئة"
-              >
-                <Sparkles className="h-4 w-4" />
-                <span className="hidden sm:inline">البدائل الهندسية</span>
-              </button>
+            {currentMaterial.model && (
+              <>
+                <span className="text-industrial-300 dark:text-industrial-600">·</span>
+                <span className="font-mono text-[11px] bg-industrial-100 dark:bg-industrial-800 px-2 py-0.5 rounded-md">
+                  Model: {currentMaterial.model}
+                </span>
+              </>
             )}
 
             <button
-              onClick={onClose}
-              className="p-2 text-industrial-400 hover:text-industrial-600 dark:hover:text-industrial-200 rounded-xl hover:bg-industrial-100 dark:hover:bg-industrial-800 transition-colors cursor-pointer"
+              type="button"
+              onClick={handleCopyDirectLink}
+              className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-md bg-industrial-100 hover:bg-industrial-200 dark:bg-industrial-800 dark:hover:bg-industrial-750 text-industrial-700 dark:text-industrial-300 transition-colors inline-flex items-center gap-1 cursor-pointer border border-industrial-200 dark:border-industrial-700 ms-auto"
+              title="نسخ الرابط المباشر للوصول السريع إلى هذه المادة"
             >
-              <X className="h-5 w-5" />
+              {isLinkCopied ? (
+                <>
+                  <Check className="h-3 w-3 text-emerald-600" />
+                  <span className="text-emerald-600 font-bold">تم نسخ الرابط!</span>
+                </>
+              ) : (
+                <>
+                  <LinkIcon className="h-3 w-3" />
+                  <span>رابط مباشر للمادة</span>
+                </>
+              )}
             </button>
           </div>
         </div>
 
         {/* Blacklist Critical Alert Banner if Flagged */}
         {blacklistCheck.isBlacklisted && (
-          <div className="bg-rose-600 text-white p-4 flex items-start gap-3 shadow-inner">
+          <div className="bg-rose-600 text-white p-4 flex items-start gap-3 shadow-inner shrink-0">
             <AlertOctagon className="h-6 w-6 shrink-0 mt-0.5" />
             <div className="space-y-0.5 text-xs">
               <h4 className="font-bold text-sm">🚫 تحذير أمني وهندسي: هذه القطعة مسجلة في القائمة السوداء (Blacklisted)</h4>
@@ -703,7 +725,7 @@ export default function MaterialDetailsModal({
         )}
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-1 overflow-x-auto px-6 pt-3 border-b border-industrial-200 dark:border-industrial-700 bg-white dark:bg-industrial-900 text-xs font-bold scrollbar-none">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth px-3 sm:px-6 border-b border-industrial-200 dark:border-industrial-700 bg-white dark:bg-industrial-900 text-xs font-bold shrink-0">
           {[
             { id: 'basic', label: 'البيانات الأساسية / Basic' },
             { id: 'photos', label: `صور ومعرفات المادة (${allPhotos.length})` },
@@ -718,7 +740,7 @@ export default function MaterialDetailsModal({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as TabType)}
-              className={`px-3.5 py-2.5 border-b-2 whitespace-nowrap transition-colors cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3.5 py-2.5 border-b-2 whitespace-nowrap shrink-0 transition-colors cursor-pointer flex items-center gap-1.5 ${
                 activeTab === tab.id
                   ? 'border-brand-600 text-brand-600 dark:text-brand-400 dark:border-brand-400 font-bold'
                   : 'border-transparent text-industrial-500 hover:text-industrial-800 dark:text-industrial-400 dark:hover:text-industrial-200'
@@ -1707,7 +1729,7 @@ export default function MaterialDetailsModal({
         {/* Footer */}
         <div className="p-4 border-t border-industrial-200 dark:border-industrial-700 bg-industrial-50/50 dark:bg-industrial-850/50 flex items-center justify-between">
           <div className="text-[11px] text-industrial-500 font-mono">
-            Part UID: {currentMaterial.partNumber} • Seq #{currentMaterial.sequence || 1}
+            Part UID: <strong className="text-industrial-700 dark:text-industrial-300">{currentMaterial.partNumber || currentMaterial.model || 'N/A'}</strong> • Seq #{currentMaterial.sequence || 1}
           </div>
 
           <div className="flex items-center gap-2">

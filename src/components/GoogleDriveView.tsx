@@ -466,15 +466,21 @@ export default function GoogleDriveView({ currentUser }: GoogleDriveViewProps) {
 
             {/* Error Fallback Banner */}
             {signInError && (
-              <div className="bg-red-50/90 border border-red-250 rounded-2xl p-4 sm:p-5 text-right space-y-3 max-w-md mx-auto shadow-xs" dir="rtl">
-                <div className="flex items-center gap-2.5 text-red-900 font-bold text-xs">
-                  <div className="p-1 bg-red-100 rounded-lg text-red-600 shrink-0">
+              <div className="bg-amber-50/95 border border-amber-300 rounded-2xl p-4 sm:p-5 text-right space-y-3 max-w-md mx-auto shadow-xs" dir="rtl">
+                <div className="flex items-center gap-2.5 text-amber-950 font-bold text-xs">
+                  <div className="p-1 bg-amber-100 rounded-lg text-amber-700 shrink-0">
                     <AlertCircle className="h-4 w-4" />
                   </div>
-                  <span>تنبيه الاتصال في تطبيق الأندرويد (APK / WebView)</span>
+                  <span>تنبيه أذونات جوجل (Google OAuth 403 - Testing Mode)</span>
                 </div>
-                <p className="text-[12px] text-red-800 leading-relaxed font-sans text-right">
-                  <strong>سبب التنبيه في تطبيق APK:</strong> تمنع سياسة أمان جوجل (Google Secure Browser Policy) تسجيل الدخول عبر النوافذ المنبثقة داخل متصفحات الـ WebView المدمجة في تطبيقات الهاتف. يمكنك فوراً تفعيل الحاوية التخزينية الميدانية لحفظ ورفع الملفات محلياً.
+                <p className="text-[12px] text-amber-900 leading-relaxed font-sans text-right">
+                  <strong>سبب ظهور هذه الشاشة (خطأ 403 / Access Denied):</strong> نظراً لأن مشروع Google Cloud لا يزال في مرحلة الاختبار والتطوير (Testing Mode)، فإن أمان جوجل يسمح فقط لحساب المالك للمشروع بالدخول.
+                  <br /><br />
+                  <strong>الحلول المتاحة:</strong>
+                  <br />
+                  1. تسجيل الدخول بحساب البريد الإلكتروني المالك للمشروع.
+                  <br />
+                  2. أو تفعيل <strong>الحاوية التخزينية الميدانية (Field Storage Vault)</strong> بالزر أدناه، والتي تتيح لك فوراً رفع وتصفح وربط ملفات المواد وشهادات الجودة بكامل الصلاحيات.
                 </p>
                 <div className="pt-1">
                   <button
@@ -483,7 +489,7 @@ export default function GoogleDriveView({ currentUser }: GoogleDriveViewProps) {
                     className="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xs py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm hover:shadow-md"
                   >
                     <HardDrive className="h-4 w-4 shrink-0 text-white" />
-                    <span>تفعيل الحاوية التخزينية الميدانية فوراً (Local Field Vault)</span>
+                    <span>تفعيل الحاوية التخزينية الميدانية فوراً (Field Storage Vault)</span>
                   </button>
                 </div>
               </div>

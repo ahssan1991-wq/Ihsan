@@ -12,11 +12,8 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 
 const provider = new GoogleAuthProvider();
-// Request Google Drive scopes
-provider.addScope('https://www.googleapis.com/auth/drive');
+// Approved Google Drive scope configured via OAuth setup (Least privilege: drive.file)
 provider.addScope('https://www.googleapis.com/auth/drive.file');
-provider.addScope('https://www.googleapis.com/auth/drive.readonly');
-provider.addScope('https://www.googleapis.com/auth/drive.metadata.readonly');
 
 let forceSandbox = false;
 try {

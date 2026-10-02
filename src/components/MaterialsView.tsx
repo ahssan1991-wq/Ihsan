@@ -980,7 +980,15 @@ Your guidelines:
       setSearchQuery(initialSearchQuery);
       setFilterStockStatus('All');
       if (initialSearchQuery) {
-        const found = materials.find(m => m.partNumber.toLowerCase() === initialSearchQuery.toLowerCase());
+        const queryLower = initialSearchQuery.toLowerCase().trim();
+        const cleanQuery = queryLower.replace(/^[#\s]*(?:seq|sequence)[\s#:]*/i, '');
+        const found = materials.find(m => 
+          (m.partNumber && m.partNumber.toLowerCase() === queryLower) ||
+          (m.model && m.model.toLowerCase() === queryLower) ||
+          (m.sequence !== undefined && (String(m.sequence) === cleanQuery || `#${m.sequence}` === queryLower)) ||
+          (dbService.normalizeToken(m.partNumber) && dbService.normalizeToken(m.partNumber) === dbService.normalizeToken(queryLower)) ||
+          (m.model && dbService.normalizeToken(m.model) === dbService.normalizeToken(queryLower))
+        );
         if (found) {
           setSelectedMaterial(found);
           setEditQtyValue(found.quantity);
@@ -992,7 +1000,11 @@ Your guidelines:
   // Synchronize modal state if materials collection changes
   useEffect(() => {
     if (selectedMaterial) {
-      const fresh = materials.find(m => m.partNumber.toUpperCase() === selectedMaterial.partNumber.toUpperCase());
+      const fresh = materials.find(m => 
+        (m.id && selectedMaterial.id && m.id === selectedMaterial.id) ||
+        (m.sequence !== undefined && selectedMaterial.sequence !== undefined && m.sequence === selectedMaterial.sequence) ||
+        (m.partNumber && selectedMaterial.partNumber && m.partNumber.toUpperCase() === selectedMaterial.partNumber.toUpperCase())
+      );
       if (fresh) {
         setSelectedMaterial(fresh);
       }
@@ -2065,8 +2077,14 @@ Your guidelines:
                         {getStockLabel(material)}
                       </td>
 
-                      {/* Storage Location */}
+                      {/* Storage Location & Station */}
                       <td className="p-4 text-industrial-600 whitespace-nowrap">
+                        {material.station && (
+                          <span className="inline-flex items-center gap-1 text-[9.5px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/90 px-1.5 py-0.5 rounded mb-1 block w-fit">
+                            <MapPin className="h-2.5 w-2.5 text-emerald-600 shrink-0" />
+                            <span>{material.station}</span>
+                          </span>
+                        )}
                         <span className="font-semibold block text-industrial-800">{material.store}</span>
                         <span className="text-[10px] font-mono text-industrial-500">Rack {material.rack} · Shelf {material.shelf}</span>
                       </td>
@@ -2561,8 +2579,14 @@ Your guidelines:
                               </p>
                             </div>
                             <div>
-                              <h4 className="text-[10px] font-mono text-industrial-400 uppercase tracking-widest font-bold">Location Coordinates</h4>
+                              <h4 className="text-[10px] font-mono text-industrial-400 uppercase tracking-widest font-bold">Location Coordinates & Station</h4>
                               <p className="text-xs font-semibold text-industrial-800 mt-0.5">
+                                {selectedMaterial.station && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded mr-1">
+                                    <MapPin className="h-2.5 w-2.5 text-emerald-600" />
+                                    {selectedMaterial.station}
+                                  </span>
+                                )}
                                 {selectedMaterial.store} · Rack {selectedMaterial.rack} / Shelf {selectedMaterial.shelf}
                               </p>
                             </div>

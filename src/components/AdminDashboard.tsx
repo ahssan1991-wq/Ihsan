@@ -639,10 +639,14 @@ export default function AdminDashboard({ currentUser, onNavigateTab }: AdminDash
                     </div>
                     <div className="flex items-center gap-1">
                       <button
+                        type="button"
                         onClick={() => setEditingSite(s)}
-                        className="px-2.5 py-1 text-xs font-semibold text-industrial-600 dark:text-industrial-300 hover:text-brand-600 hover:bg-industrial-100 dark:hover:bg-industrial-800 rounded-lg transition-colors flex items-center gap-1"
+                        className="px-3 py-1.5 min-h-[34px] text-xs font-bold text-industrial-700 dark:text-industrial-200 hover:text-brand-600 bg-industrial-100 hover:bg-industrial-200 dark:bg-industrial-800 dark:hover:bg-industrial-700 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-3xs"
+                        title="Edit Facility"
+                        aria-label={`Edit ${s.name}`}
                       >
-                        <Edit3 className="w-3.5 h-3.5" /> Edit
+                        <Edit3 className="w-3.5 h-3.5 text-brand-500" />
+                        <span>Edit</span>
                       </button>
                     </div>
                   </div>
@@ -1456,6 +1460,16 @@ export default function AdminDashboard({ currentUser, onNavigateTab }: AdminDash
         />
       )}
 
+      {/* Edit Site Modal */}
+      {editingSite && (
+        <EditSiteModal
+          site={editingSite}
+          currentUser={currentUser}
+          onClose={() => setEditingSite(null)}
+          onSuccess={() => { setEditingSite(null); reloadData(); }}
+        />
+      )}
+
       {/* Add Warehouse Modal */}
       {isAddWarehouseOpen && (
         <AddWarehouseModal
@@ -1777,6 +1791,172 @@ function AddSiteModal({ currentUser, onClose, onSuccess }: {
               className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs"
             >
               Register Facility
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// Submodal: Edit Facility / Site
+function EditSiteModal({ site, currentUser, onClose, onSuccess }: {
+  site: Site;
+  currentUser: User;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [name, setName] = useState(site.name || '');
+  const [code, setCode] = useState(site.code || '');
+  const [area, setArea] = useState(site.area || '');
+  const [location, setLocation] = useState(site.location || '');
+  const [status, setStatus] = useState<'ACTIVE' | 'INACTIVE'>(site.status || 'ACTIVE');
+  const [description, setDescription] = useState(site.description || '');
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    const res = dbService.updateSite(site.id, {
+      name,
+      code,
+      area,
+      location,
+      status,
+      active: status === 'ACTIVE',
+      description
+    }, currentUser);
+
+    if (res.success) {
+      onSuccess();
+    } else {
+      setError(res.error || 'Failed to update facility details.');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+      <div className="bg-white dark:bg-industrial-900 max-w-md w-full rounded-2xl p-6 border border-industrial-200 dark:border-industrial-800 shadow-2xl space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-brand-50 dark:bg-brand-950 text-brand-600 rounded-xl border border-brand-200 dark:border-brand-800">
+              <Building2 className="w-5 h-5 text-brand-600" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-industrial-900 dark:text-white">
+                Edit Operational Facility
+              </h3>
+              <p className="text-xs text-industrial-500 font-mono">{site.code}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-industrial-400 hover:text-industrial-600 p-1 rounded-lg cursor-pointer">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {error && (
+          <div className="p-3 bg-rose-50 text-rose-700 text-xs rounded-xl border border-rose-200 font-semibold">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="block text-xs font-bold text-industrial-700 dark:text-industrial-300 mb-1">
+              Facility Name
+            </label>
+            <input
+              type="text"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. NDGS or Northern Desert Station"
+              className="w-full px-3 py-2 text-xs bg-industrial-50 dark:bg-industrial-950 border border-industrial-200 dark:border-industrial-800 rounded-xl text-industrial-900 dark:text-white"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-industrial-700 dark:text-industrial-300 mb-1">
+                Facility Code
+              </label>
+              <input
+                type="text"
+                required
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                placeholder="e.g. NDGS-01"
+                className="w-full px-3 py-2 text-xs bg-industrial-50 dark:bg-industrial-950 border border-industrial-200 dark:border-industrial-800 rounded-xl font-mono text-industrial-900 dark:text-white"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-industrial-700 dark:text-industrial-300 mb-1">
+                Operational Status
+              </label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value as 'ACTIVE' | 'INACTIVE')}
+                className="w-full px-3 py-2 text-xs bg-industrial-50 dark:bg-industrial-950 border border-industrial-200 dark:border-industrial-800 rounded-xl font-bold text-industrial-900 dark:text-white"
+              >
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="INACTIVE">INACTIVE</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-industrial-700 dark:text-industrial-300 mb-1">
+              Operating Sector / Area
+            </label>
+            <input
+              type="text"
+              value={area}
+              onChange={(e) => setArea(e.target.value)}
+              placeholder="e.g. Gas Processing & Compression"
+              className="w-full px-3 py-2 text-xs bg-industrial-50 dark:bg-industrial-950 border border-industrial-200 dark:border-industrial-800 rounded-xl text-industrial-900 dark:text-white"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-industrial-700 dark:text-industrial-300 mb-1">
+              Physical Location / Coordinates Description
+            </label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g. Sector North Block 4"
+              className="w-full px-3 py-2 text-xs bg-industrial-50 dark:bg-industrial-950 border border-industrial-200 dark:border-industrial-800 rounded-xl text-industrial-900 dark:text-white"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-industrial-700 dark:text-industrial-300 mb-1">
+              Engineering Notes / Description
+            </label>
+            <textarea
+              rows={2}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Facility details, capacity and equipment..."
+              className="w-full px-3 py-2 text-xs bg-industrial-50 dark:bg-industrial-950 border border-industrial-200 dark:border-industrial-800 rounded-xl text-industrial-900 dark:text-white"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-industrial-100 dark:border-industrial-800">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-semibold text-industrial-600 hover:bg-industrial-100 dark:hover:bg-industrial-800 rounded-xl cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-xs cursor-pointer active:scale-95 transition-all"
+            >
+              Save Changes
             </button>
           </div>
         </form>

@@ -27,7 +27,8 @@ import {
   Eye,
   Info,
   Maximize2,
-  Camera
+  Camera,
+  MapPin
 } from 'lucide-react';
 import { Material, User, MaterialDocument, MaterialPhotoLibrary } from '../types';
 import { dbService } from '../services/dbService';
@@ -66,6 +67,8 @@ export default function MaterialQuickEditModal({
   const [unit, setUnit] = useState('pcs');
   const [minStockLevel, setMinStockLevel] = useState<number>(5);
   const [store, setStore] = useState('');
+  const [station, setStation] = useState('');
+  const [availableStations, setAvailableStations] = useState<string[]>(() => dbService.getAvailableStations());
   const [rack, setRack] = useState('');
   const [shelf, setShelf] = useState('');
   const [notes, setNotes] = useState('');
@@ -117,6 +120,7 @@ export default function MaterialQuickEditModal({
       setUnit(material.unit || 'pcs');
       setMinStockLevel(material.minStockLevel ?? 5);
       setStore(material.store || '');
+      setStation(material.station || '');
       setRack(material.rack || '');
       setShelf(material.shelf || '');
       setNotes(material.notes || '');
@@ -292,6 +296,7 @@ export default function MaterialQuickEditModal({
         unit: unit.trim(),
         minStockLevel: Math.max(0, minStockLevel),
         store: store.trim(),
+        station: station.trim() || undefined,
         rack: rack.trim(),
         shelf: shelf.trim(),
         notes: notes.trim(),
@@ -320,6 +325,10 @@ export default function MaterialQuickEditModal({
         setErrorMessage(result.error || 'فشل حفظ التعديلات في قاعدة البيانات');
         setSaving(false);
         return;
+      }
+
+      if (station && station.trim()) {
+        dbService.saveCustomStation(station.trim());
       }
 
       // Add a notification about this update
@@ -665,6 +674,101 @@ export default function MaterialQuickEditModal({
                     placeholder="e.g. SN-89234710"
                     className="w-full px-3 py-2 bg-white dark:bg-industrial-900 border border-industrial-300 dark:border-industrial-700 rounded-xl text-xs font-mono focus:ring-1.5 focus:ring-brand-500 focus:outline-hidden"
                   />
+                </div>
+
+                {/* Storage Location & Station Card */}
+                <div className="md:col-span-2 bg-industrial-50/70 dark:bg-industrial-950/40 p-4 rounded-xl border border-industrial-200 dark:border-industrial-800 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                    <label className="text-xs font-bold text-industrial-800 dark:text-industrial-200 flex items-center gap-1.5">
+                      <MapPin className="w-4 h-4 text-emerald-600" />
+                      <span>المحطة والموقع التخزيني / Station & Storage Location</span>
+                    </label>
+                    <span className="text-[10px] text-emerald-700 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                      يقبل كتابة أي اسم مخصص بحرية تامة دون تقييد
+                    </span>
+                  </div>
+
+                  {/* Station Input */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-semibold text-industrial-600 dark:text-industrial-400">
+                      اسم المحطة / الموقع (Station):
+                    </label>
+                    <input
+                      type="text"
+                      list="edit-material-stations"
+                      value={station}
+                      onChange={(e) => setStation(e.target.value)}
+                      placeholder="اكتب اسم المحطة بحرية (مثال: محطة السامسونك، مستودع المجمع، المحطة أ...)"
+                      className="w-full px-3 py-2 bg-white dark:bg-industrial-900 border border-industrial-300 dark:border-industrial-700 rounded-xl text-xs font-semibold focus:ring-1.5 focus:ring-brand-500 focus:outline-hidden"
+                    />
+                    <datalist id="edit-material-stations">
+                      {availableStations.map((st, i) => (
+                        <option key={i} value={st} />
+                      ))}
+                    </datalist>
+
+                    {/* Quick Station Suggestion Chips */}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[10px] text-industrial-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-amber-500" />
+                        مقترحات سريعة:
+                      </span>
+                      {availableStations.slice(0, 5).map((st, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setStation(st)}
+                          className={`px-2 py-0.5 rounded-lg text-[10.5px] font-medium transition-colors cursor-pointer border ${
+                            station === st
+                              ? 'bg-brand-600 text-white border-brand-600 shadow-2xs'
+                              : 'bg-white dark:bg-industrial-900 text-industrial-700 dark:text-industrial-300 border-industrial-200 dark:border-industrial-700 hover:bg-industrial-100 dark:hover:bg-industrial-800'
+                          }`}
+                        >
+                          {st}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Store, Rack, Shelf row */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-industrial-200 dark:border-industrial-800">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-industrial-600 dark:text-industrial-400 mb-1">
+                        المستودع / Store Room:
+                      </label>
+                      <input
+                        type="text"
+                        value={store}
+                        onChange={(e) => setStore(e.target.value)}
+                        placeholder="e.g. Automation Depot"
+                        className="w-full px-3 py-1.5 bg-white dark:bg-industrial-900 border border-industrial-300 dark:border-industrial-700 rounded-lg text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-industrial-600 dark:text-industrial-400 mb-1">
+                        الرف / Rack:
+                      </label>
+                      <input
+                        type="text"
+                        value={rack}
+                        onChange={(e) => setRack(e.target.value)}
+                        placeholder="e.g. R-12"
+                        className="w-full px-3 py-1.5 bg-white dark:bg-industrial-900 border border-industrial-300 dark:border-industrial-700 rounded-lg text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-industrial-600 dark:text-industrial-400 mb-1">
+                        الخانة / Shelf:
+                      </label>
+                      <input
+                        type="text"
+                        value={shelf}
+                        onChange={(e) => setShelf(e.target.value)}
+                        placeholder="e.g. Shelf-B3"
+                        className="w-full px-3 py-1.5 bg-white dark:bg-industrial-900 border border-industrial-300 dark:border-industrial-700 rounded-lg text-xs font-mono"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="md:col-span-2">

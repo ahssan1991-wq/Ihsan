@@ -22,7 +22,8 @@ import {
   RefreshCw,
   Check,
   Hash,
-  Sparkles
+  Sparkles,
+  MapPin
 } from 'lucide-react';
 import { Material, User, UserRole, MaterialSerialNumber, MaterialHistoryEvent, MaterialTransactionEvent } from '../types';
 import { dbService } from '../services/dbService';
@@ -52,12 +53,16 @@ export default function AddMaterialView({
   const [serialNumber, setSerialNumber] = useState('');
   const [quantity, setQuantity] = useState<number>(0);
   const [unit, setUnit] = useState('pcs');
+  const [station, setStation] = useState('ZFOD Warehouse');
   const [store, setStore] = useState('Electronics Lab (Lab A)');
   const [rack, setRack] = useState('');
   const [shelf, setShelf] = useState('');
   const [notes, setNotes] = useState('');
   const [minStockLevel, setMinStockLevel] = useState<number>(10);
   const [prefillAlert, setPrefillAlert] = useState<string | null>(null);
+
+  // Available stations from database & custom history
+  const [availableStations, setAvailableStations] = useState<string[]>(() => dbService.getAvailableStations());
 
   // Master Warehouses from Port 10 Master Data
   const masterWarehouses = useMemo(() => dbService.getWarehouses(), []);
@@ -73,6 +78,7 @@ export default function AddMaterialView({
       else if (initialPrefillData.manufacturer && initialPrefillData.model) {
         setDescription(`${initialPrefillData.manufacturer} ${initialPrefillData.model} Industrial Component`);
       }
+      if (initialPrefillData.station) setStation(initialPrefillData.station);
       if (initialPrefillData.store) setStore(initialPrefillData.store);
       if (initialPrefillData.rack) setRack(initialPrefillData.rack);
       if (initialPrefillData.shelf) setShelf(initialPrefillData.shelf);
@@ -321,6 +327,7 @@ export default function AddMaterialView({
       model: model.trim() || 'N/A',
       quantity: Math.max(0, quantity),
       unit: unit,
+      station: station.trim() || 'ZFOD Warehouse',
       store: store,
       rack: rack.trim() || 'N/A',
       shelf: shelf.trim() || 'N/A',
@@ -360,6 +367,10 @@ export default function AddMaterialView({
         notes: payload.notes || 'Created via Add Material form'
       };
       dbService.sendMaterialAlertEmail(eventPayload);
+
+      if (station && station.trim()) {
+        dbService.saveCustomStation(station.trim());
+      }
 
       setSuccess(true);
       // Reset form
@@ -1022,8 +1033,60 @@ export default function AddMaterialView({
         {/* Location Coordinates */}
         <div className="p-6 space-y-4">
           <h3 className="text-xs font-bold text-industrial-500 uppercase tracking-widest font-mono flex items-center gap-1.5">
-            <Warehouse className="h-3.5 w-3.5 text-brand-600" /> Section 3: Physical Storage Location
+            <Warehouse className="h-3.5 w-3.5 text-brand-600" /> Section 3: Physical Storage Location & Station (موقع التخزين والمحطة)
           </h3>
+
+          {/* Station / Plant Custom Input with Suggestions */}
+          <div className="bg-industrial-50/70 p-3.5 rounded-xl border border-industrial-200/90 space-y-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+              <label htmlFor="station-input" className="text-xs font-bold text-industrial-800 flex items-center gap-1.5">
+                <MapPin className="h-4 w-4 text-emerald-600 shrink-0" />
+                <span>Station / اسم المحطة أو الموقع:</span>
+              </label>
+              <span className="text-[10.5px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-medium border border-emerald-200">
+                يمكنك كتابة أي اسم محطة بحرية تامة دون تقييد
+              </span>
+            </div>
+
+            <div className="relative">
+              <input
+                id="station-input"
+                type="text"
+                list="add-material-stations"
+                value={station}
+                onChange={(e) => setStation(e.target.value)}
+                placeholder="اكتب اسم المحطة بحرية (مثال: محطة السامسونك، مستودع المجمع، المحطة أ...)"
+                className="w-full bg-white border border-industrial-300 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-industrial-900 focus:outline-none focus:ring-2 focus:ring-brand-500 shadow-2xs"
+              />
+              <datalist id="add-material-stations">
+                {availableStations.map((st, i) => (
+                  <option key={i} value={st} />
+                ))}
+              </datalist>
+            </div>
+
+            {/* Quick Suggestion Chips */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs">
+              <span className="text-[10px] text-industrial-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                <Sparkles className="h-3 w-3 text-amber-500" />
+                مقترحات سريعة:
+              </span>
+              {availableStations.slice(0, 5).map((st, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setStation(st)}
+                  className={`px-2 py-0.8 rounded-lg text-[10.5px] font-medium transition-colors cursor-pointer border ${
+                    station === st
+                      ? 'bg-brand-600 text-white border-brand-600 shadow-2xs'
+                      : 'bg-white text-industrial-700 border-industrial-200 hover:bg-industrial-100'
+                  }`}
+                >
+                  {st}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {/* Store Room */}

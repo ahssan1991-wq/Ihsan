@@ -208,19 +208,38 @@ class MaterialIntelligenceService {
 
     try {
       const baseUrl = getBaseApiUrl();
-      const res = await fetch(`${baseUrl}/api/material/search-web`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: q,
-          manufacturer: params.manufacturer,
-          model: params.model,
-          partNumber: params.partNumber,
-          description: params.description
-        })
-      });
+      let res: Response | null = null;
+      try {
+        res = await fetch(`${baseUrl}/api/material/search-web`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: q,
+            manufacturer: params.manufacturer,
+            model: params.model,
+            partNumber: params.partNumber,
+            description: params.description
+          })
+        });
+      } catch (fetchErr) {
+        if (baseUrl) {
+          res = await fetch('/api/material/search-web', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query: q,
+              manufacturer: params.manufacturer,
+              model: params.model,
+              partNumber: params.partNumber,
+              description: params.description
+            })
+          });
+        } else {
+          throw fetchErr;
+        }
+      }
 
-      if (res.ok) {
+      if (res && res.ok) {
         const data = await res.json();
         // Record in search history
         this.recordSearchHistory({
@@ -234,7 +253,7 @@ class MaterialIntelligenceService {
         return data;
       }
     } catch (e) {
-      console.error('Web evidence search request failed:', e);
+      console.warn('[MaterialIntelligence] Web evidence search offline or unavailable, using local registry:', e);
     }
 
     // Offline / Fallback: Check static known manufacturer registry
@@ -280,18 +299,31 @@ class MaterialIntelligenceService {
   }> {
     try {
       const baseUrl = getBaseApiUrl();
-      const res = await fetch(`${baseUrl}/api/material/find-datasheet`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params)
-      });
+      let res: Response | null = null;
+      try {
+        res = await fetch(`${baseUrl}/api/material/find-datasheet`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(params)
+        });
+      } catch (fetchErr) {
+        if (baseUrl) {
+          res = await fetch('/api/material/find-datasheet', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(params)
+          });
+        } else {
+          throw fetchErr;
+        }
+      }
 
-      if (res.ok) {
+      if (res && res.ok) {
         const data = await res.json();
         return data;
       }
     } catch (e) {
-      console.error('Datasheet search failed:', e);
+      console.warn('[MaterialIntelligence] Datasheet search unavailable:', e);
     }
 
     return {
@@ -314,17 +346,30 @@ class MaterialIntelligenceService {
   }> {
     try {
       const baseUrl = getBaseApiUrl();
-      const res = await fetch(`${baseUrl}/api/material/search-images`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params)
-      });
+      let res: Response | null = null;
+      try {
+        res = await fetch(`${baseUrl}/api/material/search-images`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(params)
+        });
+      } catch (fetchErr) {
+        if (baseUrl) {
+          res = await fetch('/api/material/search-images', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(params)
+          });
+        } else {
+          throw fetchErr;
+        }
+      }
 
-      if (res.ok) {
+      if (res && res.ok) {
         return await res.json();
       }
     } catch (e) {
-      console.error('Image search failed:', e);
+      console.warn('[MaterialIntelligence] Image search unavailable:', e);
     }
 
     return {
@@ -351,13 +396,26 @@ class MaterialIntelligenceService {
 
     try {
       const baseUrl = getBaseApiUrl();
-      const res = await fetch(`${baseUrl}/api/material/analyze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ material, webSources, ocrText })
-      });
+      let res: Response | null = null;
+      try {
+        res = await fetch(`${baseUrl}/api/material/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ material, webSources, ocrText })
+        });
+      } catch (fetchErr) {
+        if (baseUrl) {
+          res = await fetch('/api/material/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ material, webSources, ocrText })
+          });
+        } else {
+          throw fetchErr;
+        }
+      }
 
-      if (res.ok) {
+      if (res && res.ok) {
         const data: MaterialIntelligenceResult = await res.json();
         if (manufacturerInfo && !data.manufacturerInfo) {
           data.manufacturerInfo = manufacturerInfo;
@@ -367,7 +425,7 @@ class MaterialIntelligenceService {
         return data;
       }
     } catch (e) {
-      console.error('Material deep analysis API error:', e);
+      console.warn('[MaterialIntelligence] Material deep analysis API offline or unavailable, using heuristics:', e);
     }
 
     // High quality offline heuristic fallback

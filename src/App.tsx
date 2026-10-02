@@ -87,6 +87,7 @@ import {
 import { AnimatePresence, motion } from 'motion/react';
 import { useLanguage } from './contexts/LanguageContext';
 import QuickNavigationModal, { ALL_NAV_ITEMS } from './components/QuickNavigationModal';
+import { getActionCenterItems } from './services/port14Service';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -225,6 +226,28 @@ export default function App() {
       window.removeEventListener('emis:material-updated', handleMaterialUpdated);
     };
   }, []);
+
+  // Action Items Count for Mobile Bottom Bar Badge
+  const [actionItemCount, setActionItemCount] = useState<number>(0);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const updateActionCount = () => {
+      const items = getActionCenterItems(currentUser);
+      setActionItemCount(items.length);
+    };
+    updateActionCount();
+
+    window.addEventListener('emis:notifications-updated', updateActionCount);
+    window.addEventListener('emis:material-added', updateActionCount);
+    window.addEventListener('emis:sync-status-changed', updateActionCount);
+
+    return () => {
+      window.removeEventListener('emis:notifications-updated', updateActionCount);
+      window.removeEventListener('emis:material-added', updateActionCount);
+      window.removeEventListener('emis:sync-status-changed', updateActionCount);
+    };
+  }, [currentUser]);
 
   // Listen for deep link part number or passport parameter from scanned QR code tags
   useEffect(() => {
@@ -1091,6 +1114,20 @@ export default function App() {
       />
 
       {/* Floating Interactive Quick-Action Speed Dial */}
+      <AnimatePresence>
+        {isFabOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => setIsFabOpen(false)}
+            className="fixed inset-0 bg-industrial-950/45 backdrop-blur-xs z-35"
+            aria-hidden="true"
+          />
+        )}
+      </AnimatePresence>
+
       <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] lg:bottom-6 right-5 z-40 flex flex-col items-end gap-2.5">
         <AnimatePresence>
           {isFabOpen && (
@@ -1098,7 +1135,7 @@ export default function App() {
               initial={{ opacity: 0, y: 15, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 15, scale: 0.9 }}
-              transition={{ duration: 0.15 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
               className="flex flex-col items-end gap-2"
             >
               {/* Direct Device / PWA Installation Shortcut */}
@@ -1107,11 +1144,11 @@ export default function App() {
                   setIsInstallModalOpen(true);
                   setIsFabOpen(false);
                 }}
-                className="flex items-center gap-2.5 px-3.5 py-2 bg-gradient-to-r from-brand-900 to-indigo-950 text-brand-300 border border-brand-500/40 rounded-xl shadow-xl text-xs font-semibold backdrop-blur-md transition-all cursor-pointer group"
+                className="flex items-center gap-2.5 px-3.5 py-2 bg-gradient-to-r from-brand-900/85 to-indigo-950/85 hover:from-brand-800/90 hover:to-indigo-900/90 text-brand-300 border border-brand-500/40 hover:border-brand-400 rounded-xl shadow-xl text-xs font-semibold backdrop-blur-xl transition-all duration-200 ease-out hover:-translate-x-1.5 active:scale-95 cursor-pointer group"
                 id="fab-install-app-direct"
               >
                 <span className="text-[11px] text-white font-medium">📥 تثبيت التطبيق على جهازي (PWA)</span>
-                <div className="p-1.5 bg-brand-500/30 rounded-lg group-hover:scale-110 transition-transform">
+                <div className="p-1.5 bg-brand-500/30 rounded-lg group-hover:scale-110 group-hover:bg-brand-500/50 transition-all duration-200">
                   <Download className="h-4 w-4 text-brand-300" />
                 </div>
               </button>
@@ -1122,11 +1159,11 @@ export default function App() {
                   setIsLiveScannerOpen(true);
                   setIsFabOpen(false);
                 }}
-                className="flex items-center gap-2.5 px-3.5 py-2 bg-industrial-900/95 hover:bg-industrial-800 text-cyan-400 border border-cyan-500/30 rounded-xl shadow-xl text-xs font-semibold backdrop-blur-md transition-all cursor-pointer group"
+                className="flex items-center gap-2.5 px-3.5 py-2 bg-industrial-900/80 hover:bg-industrial-800/90 text-cyan-400 border border-white/10 hover:border-cyan-400/50 rounded-xl shadow-xl text-xs font-semibold backdrop-blur-xl transition-all duration-200 ease-out hover:-translate-x-1.5 active:scale-95 cursor-pointer group"
                 id="fab-live-scanner-port16"
               >
                 <span className="text-[11px] text-white font-medium">📷 مسح الكاميرا المباشر (Barcode/QR)</span>
-                <div className="p-1.5 bg-cyan-500/20 rounded-lg group-hover:scale-110 transition-transform">
+                <div className="p-1.5 bg-cyan-500/20 rounded-lg group-hover:scale-110 group-hover:bg-cyan-500/30 transition-all duration-200">
                   <Camera className="h-4 w-4 text-cyan-400" />
                 </div>
               </button>
@@ -1137,25 +1174,26 @@ export default function App() {
                   setIsOrganizationSettingsOpen(true);
                   setIsFabOpen(false);
                 }}
-                className="flex items-center gap-2.5 px-3.5 py-2 bg-industrial-900/95 hover:bg-industrial-800 text-indigo-400 border border-indigo-500/30 rounded-xl shadow-xl text-xs font-semibold backdrop-blur-md transition-all cursor-pointer group"
+                className="flex items-center gap-2.5 px-3.5 py-2 bg-industrial-900/80 hover:bg-industrial-800/90 text-indigo-400 border border-white/10 hover:border-indigo-400/50 rounded-xl shadow-xl text-xs font-semibold backdrop-blur-xl transition-all duration-200 ease-out hover:-translate-x-1.5 active:scale-95 cursor-pointer group"
                 id="fab-org-branding-port16"
               >
                 <span className="text-[11px] text-white font-medium">🏢 هوية المؤسسة وترويسة الوثائق</span>
-                <div className="p-1.5 bg-indigo-500/20 rounded-lg group-hover:scale-110 transition-transform">
+                <div className="p-1.5 bg-indigo-500/20 rounded-lg group-hover:scale-110 group-hover:bg-indigo-500/30 transition-all duration-200">
                   <Building2 className="h-4 w-4 text-indigo-400" />
                 </div>
               </button>
+
               {/* Port 13: Specialized AI Assistant Shortcut */}
               <button
                 onClick={() => {
                   setIsAiAssistantOpen(true);
                   setIsFabOpen(false);
                 }}
-                className="flex items-center gap-2.5 px-3.5 py-2 bg-industrial-900/95 hover:bg-industrial-800 text-purple-400 border border-purple-500/30 rounded-xl shadow-xl text-xs font-semibold backdrop-blur-md transition-all cursor-pointer group"
+                className="flex items-center gap-2.5 px-3.5 py-2 bg-industrial-900/80 hover:bg-industrial-800/90 text-purple-400 border border-white/10 hover:border-purple-400/50 rounded-xl shadow-xl text-xs font-semibold backdrop-blur-xl transition-all duration-200 ease-out hover:-translate-x-1.5 active:scale-95 cursor-pointer group"
                 id="fab-ai-assistant-port13"
               >
                 <span className="text-[11px] text-white font-medium">🤖 المساعد الهندسي الذكي (Port 13)</span>
-                <div className="p-1.5 bg-purple-500/20 rounded-lg group-hover:scale-110 transition-transform">
+                <div className="p-1.5 bg-purple-500/20 rounded-lg group-hover:scale-110 group-hover:bg-purple-500/30 transition-all duration-200">
                   <Bot className="h-4 w-4 text-purple-400" />
                 </div>
               </button>
@@ -1166,11 +1204,11 @@ export default function App() {
                   setIsRemoteAccessOpen(true);
                   setIsFabOpen(false);
                 }}
-                className="flex items-center gap-2.5 px-3.5 py-2 bg-industrial-900/95 hover:bg-industrial-800 text-sky-400 border border-sky-500/30 rounded-xl shadow-xl text-xs font-semibold backdrop-blur-md transition-all cursor-pointer group"
+                className="flex items-center gap-2.5 px-3.5 py-2 bg-industrial-900/80 hover:bg-industrial-800/90 text-sky-400 border border-white/10 hover:border-sky-400/50 rounded-xl shadow-xl text-xs font-semibold backdrop-blur-xl transition-all duration-200 ease-out hover:-translate-x-1.5 active:scale-95 cursor-pointer group"
                 id="fab-remote-access-port13"
               >
                 <span className="text-[11px] text-white font-medium">📱 الاتصال الميداني QR (Port 13)</span>
-                <div className="p-1.5 bg-sky-500/20 rounded-lg group-hover:scale-110 transition-transform">
+                <div className="p-1.5 bg-sky-500/20 rounded-lg group-hover:scale-110 group-hover:bg-sky-500/30 transition-all duration-200">
                   <Smartphone className="h-4 w-4 text-sky-400" />
                 </div>
               </button>
@@ -1181,11 +1219,11 @@ export default function App() {
                   setActiveTab('recycle-bin');
                   setIsFabOpen(false);
                 }}
-                className="flex items-center gap-2.5 px-3.5 py-2 bg-industrial-900/95 hover:bg-industrial-800 text-rose-400 border border-rose-500/30 rounded-xl shadow-xl text-xs font-semibold backdrop-blur-md transition-all cursor-pointer group"
+                className="flex items-center gap-2.5 px-3.5 py-2 bg-industrial-900/80 hover:bg-industrial-800/90 text-rose-400 border border-white/10 hover:border-rose-400/50 rounded-xl shadow-xl text-xs font-semibold backdrop-blur-xl transition-all duration-200 ease-out hover:-translate-x-1.5 active:scale-95 cursor-pointer group"
                 id="fab-recycle-bin-port13"
               >
                 <span className="text-[11px] text-white font-medium">🗑️ سلة المحذوفات واسترجاع البيانات</span>
-                <div className="p-1.5 bg-rose-500/20 rounded-lg group-hover:scale-110 transition-transform">
+                <div className="p-1.5 bg-rose-500/20 rounded-lg group-hover:scale-110 group-hover:bg-rose-500/30 transition-all duration-200">
                   <Trash2 className="h-4 w-4 text-rose-400" />
                 </div>
               </button>
@@ -1197,11 +1235,11 @@ export default function App() {
                   setIsIntelligenceOpen(true);
                   setIsFabOpen(false);
                 }}
-                className="flex items-center gap-2.5 px-3.5 py-2 bg-industrial-900/95 hover:bg-industrial-800 text-brand-400 border border-brand-500/30 rounded-xl shadow-xl text-xs font-semibold backdrop-blur-md transition-all cursor-pointer group"
+                className="flex items-center gap-2.5 px-3.5 py-2 bg-industrial-900/80 hover:bg-industrial-800/90 text-brand-400 border border-white/10 hover:border-brand-400/50 rounded-xl shadow-xl text-xs font-semibold backdrop-blur-xl transition-all duration-200 ease-out hover:-translate-x-1.5 active:scale-95 cursor-pointer group"
                 id="fab-material-intelligence"
               >
                 <span className="text-[11px] text-white font-medium">🌐 استخبارات وترجمة المواد (Port 9)</span>
-                <div className="p-1.5 bg-brand-500/20 rounded-lg group-hover:scale-110 transition-transform">
+                <div className="p-1.5 bg-brand-500/20 rounded-lg group-hover:scale-110 group-hover:bg-brand-500/30 transition-all duration-200">
                   <Globe className="h-4 w-4 text-brand-400" />
                 </div>
               </button>
@@ -1224,11 +1262,11 @@ export default function App() {
                       openScanner();
                       setIsFabOpen(false);
                     }}
-                    className="flex items-center gap-2.5 px-3.5 py-2 bg-industrial-900/95 hover:bg-industrial-800 text-amber-400 border border-amber-500/30 rounded-xl shadow-xl text-xs font-semibold backdrop-blur-md transition-all cursor-pointer group"
+                    className="flex items-center gap-2.5 px-3.5 py-2 bg-industrial-900/80 hover:bg-industrial-800/90 text-amber-400 border border-white/10 hover:border-amber-400/50 rounded-xl shadow-xl text-xs font-semibold backdrop-blur-xl transition-all duration-200 ease-out hover:-translate-x-1.5 active:scale-95 cursor-pointer group"
                     id="fab-camera-scanner"
                   >
                     <span className="text-[11px] text-white font-medium">📷 مسح باركود / لوحة بيانات</span>
-                    <div className="p-1.5 bg-amber-500/20 rounded-lg group-hover:scale-110 transition-transform">
+                    <div className="p-1.5 bg-amber-500/20 rounded-lg group-hover:scale-110 group-hover:bg-amber-500/30 transition-all duration-200">
                       <Camera className="h-4 w-4 text-amber-400" />
                     </div>
                   </button>
@@ -1241,11 +1279,11 @@ export default function App() {
                   setActiveTab('search');
                   setIsFabOpen(false);
                 }}
-                className="flex items-center gap-2.5 px-3.5 py-2 bg-industrial-900/95 hover:bg-industrial-800 text-blue-400 border border-blue-500/30 rounded-xl shadow-xl text-xs font-semibold backdrop-blur-md transition-all cursor-pointer group"
+                className="flex items-center gap-2.5 px-3.5 py-2 bg-industrial-900/80 hover:bg-industrial-800/90 text-blue-400 border border-white/10 hover:border-blue-400/50 rounded-xl shadow-xl text-xs font-semibold backdrop-blur-xl transition-all duration-200 ease-out hover:-translate-x-1.5 active:scale-95 cursor-pointer group"
                 id="fab-smart-search"
               >
                 <span className="text-[11px] text-white font-medium">🔍 بحث هندسي ذكي (Smart Search)</span>
-                <div className="p-1.5 bg-blue-500/20 rounded-lg group-hover:scale-110 transition-transform">
+                <div className="p-1.5 bg-blue-500/20 rounded-lg group-hover:scale-110 group-hover:bg-blue-500/30 transition-all duration-200">
                   <Search className="h-4 w-4 text-blue-400" />
                 </div>
               </button>
@@ -1256,11 +1294,11 @@ export default function App() {
                   setActiveTab('ai-copilot');
                   setIsFabOpen(false);
                 }}
-                className="flex items-center gap-2.5 px-3.5 py-2 bg-industrial-900/95 hover:bg-industrial-800 text-indigo-400 border border-indigo-500/30 rounded-xl shadow-xl text-xs font-semibold backdrop-blur-md transition-all cursor-pointer group"
+                className="flex items-center gap-2.5 px-3.5 py-2 bg-industrial-900/80 hover:bg-industrial-800/90 text-indigo-400 border border-white/10 hover:border-indigo-400/50 rounded-xl shadow-xl text-xs font-semibold backdrop-blur-xl transition-all duration-200 ease-out hover:-translate-x-1.5 active:scale-95 cursor-pointer group"
                 id="fab-ai-copilot"
               >
                 <span className="text-[11px] text-white font-medium">⚡ المساعد الذكي (AI Co-Pilot)</span>
-                <div className="p-1.5 bg-indigo-500/20 rounded-lg group-hover:scale-110 transition-transform">
+                <div className="p-1.5 bg-indigo-500/20 rounded-lg group-hover:scale-110 group-hover:bg-indigo-500/30 transition-all duration-200">
                   <Zap className="h-4 w-4 text-indigo-400" />
                 </div>
               </button>
@@ -1272,11 +1310,11 @@ export default function App() {
                     setActiveTab('add-material');
                     setIsFabOpen(false);
                   }}
-                  className="flex items-center gap-2.5 px-3.5 py-2 bg-industrial-900/95 hover:bg-industrial-800 text-emerald-400 border border-emerald-500/30 rounded-xl shadow-xl text-xs font-semibold backdrop-blur-md transition-all cursor-pointer group"
+                  className="flex items-center gap-2.5 px-3.5 py-2 bg-industrial-900/80 hover:bg-industrial-800/90 text-emerald-400 border border-white/10 hover:border-emerald-400/50 rounded-xl shadow-xl text-xs font-semibold backdrop-blur-xl transition-all duration-200 ease-out hover:-translate-x-1.5 active:scale-95 cursor-pointer group"
                   id="fab-add-material"
                 >
                   <span className="text-[11px] text-white font-medium">➕ تسجيل مادة جديدة</span>
-                  <div className="p-1.5 bg-emerald-500/20 rounded-lg group-hover:scale-110 transition-transform">
+                  <div className="p-1.5 bg-emerald-500/20 rounded-lg group-hover:scale-110 group-hover:bg-emerald-500/30 transition-all duration-200">
                     <PlusCircle className="h-4 w-4 text-emerald-400" />
                   </div>
                 </button>
@@ -1289,10 +1327,10 @@ export default function App() {
         <motion.button
           whileTap={{ scale: 0.92 }}
           onClick={() => setIsFabOpen(!isFabOpen)}
-          className={`h-12 w-12 rounded-2xl flex items-center justify-center shadow-2xl border transition-all cursor-pointer select-none ${
+          className={`h-12 w-12 rounded-2xl flex items-center justify-center shadow-2xl border transition-all cursor-pointer select-none backdrop-blur-xl ${
             isFabOpen
               ? 'bg-red-600 border-red-400 text-white rotate-45 shadow-red-900/50'
-              : 'bg-linear-to-tr from-brand-700 via-brand-600 to-indigo-600 border-brand-400/40 text-white shadow-brand-950/60 hover:scale-105'
+              : 'bg-gradient-to-tr from-brand-700 via-brand-600 to-indigo-600 border-brand-400/40 text-white shadow-brand-950/60 hover:scale-105 hover:shadow-brand-500/30'
           }`}
           title={isFabOpen ? 'إغلاق القائمة السريعة' : 'أدوات الوصول السريع التفاعلية'}
           id="main-fab-trigger"

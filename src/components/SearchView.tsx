@@ -200,16 +200,23 @@ export default function SearchView({ materials: rawMaterials = [], currentUser, 
     }
   };
 
-  const handleNavigateDirectToMaterial = (e: React.MouseEvent, partNumber: string) => {
+  const handleNavigateDirectToMaterial = (e: React.MouseEvent, materialOrPart: Material | string) => {
     e.preventDefault();
     e.stopPropagation();
-    searchHistoryService.recordPartAccess(partNumber);
-    window.dispatchEvent(new Event('emis:search-history-updated'));
-    if (onNavigateToTab) {
-      onNavigateToTab('materials', partNumber);
-    } else {
-      const target = materials.find(m => m.partNumber.toUpperCase() === partNumber.toUpperCase());
-      if (target) onInspectMaterial(target);
+    const targetMat = typeof materialOrPart === 'string'
+      ? materials.find(m => m.partNumber.toUpperCase() === materialOrPart.toUpperCase())
+      : materialOrPart;
+
+    if (targetMat) {
+      if (targetMat.partNumber) {
+        searchHistoryService.recordPartAccess(targetMat.partNumber);
+        window.dispatchEvent(new Event('emis:search-history-updated'));
+      }
+      if (onNavigateToTab) {
+        onNavigateToTab('materials', targetMat.partNumber || targetMat.model || (targetMat.sequence ? `#${targetMat.sequence}` : ''));
+      } else {
+        onInspectMaterial(targetMat);
+      }
     }
   };
 
@@ -690,13 +697,15 @@ export default function SearchView({ materials: rawMaterials = [], currentUser, 
   return (
     <div className="space-y-6" id="search-view">
       {/* Search Dashboard Header */}
-      <div className="bg-white p-6 rounded-2xl border border-industrial-200 shadow-sm space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white p-4 sm:p-6 rounded-2xl border border-industrial-200 shadow-sm space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
           <div>
-            <h2 className="text-xl font-bold tracking-tight text-industrial-800 heading-display flex items-center gap-2">
-              <SlidersHorizontal className="h-5.5 w-5.5 text-brand-600" /> خدمة البحث السريع والمطابقة الذكية / Quick & AI Search
+            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-industrial-800 heading-display flex items-center gap-2">
+              <SlidersHorizontal className="h-5 w-5 text-brand-600 shrink-0" />
+              <span>خدمة البحث السريع والمطابقة الذكية</span>
+              <span className="hidden sm:inline text-xs font-normal text-industrial-400">/ Quick & AI Search</span>
             </h2>
-            <p className="text-xs text-industrial-500 mt-1">
+            <p className="text-xs text-industrial-500 mt-1 leading-relaxed">
               ابحث فورياً برقم المادة التسلسلي، رقم القطعة، اسم الشركة المصنعة، الموديل، الوصف، أو استخدم الكاميرا والذكاء الاصطناعي لمطابقة اللوحات.
             </p>
           </div>
@@ -707,7 +716,7 @@ export default function SearchView({ materials: rawMaterials = [], currentUser, 
               <button
                 type="button"
                 onClick={handleExportSearchResults}
-                className="text-xs bg-industrial-50 hover:bg-industrial-100 text-industrial-700 font-bold px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 border border-industrial-200 cursor-pointer shadow-2xs"
+                className="text-xs bg-industrial-50 hover:bg-industrial-100 text-industrial-700 font-bold px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 border border-industrial-200 cursor-pointer shadow-2xs shrink-0"
                 title="تصدير نتائج البحث إلى ملف Excel"
               >
                 <Download className="h-3.5 w-3.5 text-emerald-600" />
@@ -723,163 +732,176 @@ export default function SearchView({ materials: rawMaterials = [], currentUser, 
                 <button
                   type="button"
                   onClick={open}
-                  className="text-xs bg-brand-600 hover:bg-brand-500 text-white font-bold px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 border border-brand-700 cursor-pointer shadow-sm"
+                  className="text-xs bg-brand-600 hover:bg-brand-500 text-white font-bold px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 border border-brand-700 cursor-pointer shadow-sm shrink-0"
                 >
                   <Camera className="h-4 w-4 animate-pulse" />
-                  <span>المسح البصري بالكاميرا / Camera Scan</span>
+                  <span>المسح بالكاميرا</span>
+                  <span className="hidden sm:inline">/ Scan</span>
                 </button>
               )}
             />
 
             <button
               onClick={handleResetFilters}
-              className="text-xs bg-industrial-100 hover:bg-industrial-200 text-industrial-700 font-semibold px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 border border-industrial-200 cursor-pointer"
+              className="text-xs bg-industrial-100 hover:bg-industrial-200 text-industrial-700 font-semibold px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 border border-industrial-200 cursor-pointer shrink-0"
             >
               <RefreshCcw className="h-3.5 w-3.5" />
-              <span>إعادة ضبط / Reset</span>
+              <span>إعادة ضبط</span>
+              <span className="hidden sm:inline">/ Reset</span>
             </button>
           </div>
         </div>
 
         {/* Multi-Source Search Scope Selector (Green: Station, Blue: External Stock, Purple: Equipment, Orange: MR/WO) */}
-        <div className="flex items-center gap-1.5 p-1.5 bg-industrial-100/80 rounded-xl overflow-x-auto text-xs font-semibold border border-industrial-200/80">
+        <div className="flex items-center gap-1.5 p-1.5 bg-industrial-100/80 rounded-xl overflow-x-auto no-scrollbar scroll-smooth text-xs font-semibold border border-industrial-200/80">
           <button
             type="button"
             onClick={() => setSourceScope('ALL')}
-            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg transition-all shrink-0 flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               sourceScope === 'ALL'
                 ? 'bg-industrial-900 text-white shadow-xs font-bold'
                 : 'text-industrial-600 hover:text-industrial-900 hover:bg-industrial-200/60'
             }`}
           >
             <Globe className="h-3.5 w-3.5 text-brand-400" />
-            <span>🌐 كافة المصادر / All Sources</span>
+            <span>كافة المصادر</span>
+            <span className="hidden sm:inline text-[10px] opacity-75">/ All</span>
           </button>
           
           <button
             type="button"
             onClick={() => setSourceScope('STATION')}
-            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg transition-all shrink-0 flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               sourceScope === 'STATION'
                 ? 'bg-emerald-600 text-white shadow-xs font-bold'
                 : 'text-emerald-800 hover:bg-emerald-100/70'
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span>🟢 مواد المحطة / Station ({materials.length})</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+            <span>مواد المحطة</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-700/20 font-mono font-bold">
+              {materials.length}
+            </span>
           </button>
 
           <button
             type="button"
             onClick={() => setSourceScope('EXTERNAL')}
-            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg transition-all shrink-0 flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               sourceScope === 'EXTERNAL'
                 ? 'bg-sky-600 text-white shadow-xs font-bold'
                 : 'text-sky-800 hover:bg-sky-100/70'
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-sky-400"></span>
-            <span>🔵 مخزون خارجي / External Stock ({dbService.getExternalMaterials().length})</span>
+            <span className="w-2 h-2 rounded-full bg-sky-400 shrink-0"></span>
+            <span>مخزون خارجي</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-sky-700/20 font-mono font-bold">
+              {dbService.getExternalMaterials().length}
+            </span>
           </button>
 
           <button
             type="button"
             onClick={() => setSourceScope('EQUIPMENT')}
-            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg transition-all shrink-0 flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               sourceScope === 'EQUIPMENT'
                 ? 'bg-purple-600 text-white shadow-xs font-bold'
                 : 'text-purple-800 hover:bg-purple-100/70'
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-purple-400"></span>
-            <span>🟣 المعدات / Equipment ({dbService.getEquipment().length})</span>
+            <span className="w-2 h-2 rounded-full bg-purple-400 shrink-0"></span>
+            <span>المعدات</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-purple-700/20 font-mono font-bold">
+              {dbService.getEquipment().length}
+            </span>
           </button>
 
           <button
             type="button"
             onClick={() => setSourceScope('MRF_WO')}
-            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg transition-all shrink-0 flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               sourceScope === 'MRF_WO'
                 ? 'bg-amber-600 text-white shadow-xs font-bold'
                 : 'text-amber-800 hover:bg-amber-100/70'
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-            <span>🟠 طلبات وأوامر العمل / MR & WO</span>
+            <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0"></span>
+            <span>طلبات وأوامر العمل</span>
+            <span className="hidden sm:inline text-[10px] opacity-75">/ MR & WO</span>
           </button>
         </div>
 
         {/* Quick Filter Categories Chips */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth pb-1 pt-0.5 text-xs px-0.5">
           <button
             type="button"
             onClick={() => setQuickFilter('all')}
-            className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 whitespace-nowrap ${
               quickFilter === 'all'
                 ? 'bg-industrial-900 text-white shadow-2xs'
                 : 'bg-industrial-100 text-industrial-700 hover:bg-industrial-200'
             }`}
           >
-            <Boxes className="h-3.5 w-3.5" />
+            <Boxes className="h-3.5 w-3.5 shrink-0" />
             <span>جميع المواد ({materials.length})</span>
           </button>
           <button
             type="button"
             onClick={() => setQuickFilter('low')}
-            className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 whitespace-nowrap ${
               quickFilter === 'low'
                 ? 'bg-amber-600 text-white shadow-2xs'
                 : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
             }`}
           >
-            <AlertTriangle className="h-3.5 w-3.5" />
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             <span>رصيد منخفض ({materials.filter(m => m.quantity <= m.minStockLevel && m.quantity > 0).length})</span>
           </button>
           <button
             type="button"
             onClick={() => setQuickFilter('out')}
-            className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 whitespace-nowrap ${
               quickFilter === 'out'
                 ? 'bg-red-600 text-white shadow-2xs'
                 : 'bg-red-50 text-red-800 border border-red-200 hover:bg-red-100'
             }`}
           >
-            <AlertOctagon className="h-3.5 w-3.5" />
+            <AlertOctagon className="h-3.5 w-3.5 shrink-0" />
             <span>نفد من المخزن ({materials.filter(m => m.quantity === 0).length})</span>
           </button>
           <button
             type="button"
             onClick={() => setQuickFilter('oem')}
-            className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 whitespace-nowrap ${
               quickFilter === 'oem'
                 ? 'bg-emerald-700 text-white shadow-2xs'
                 : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
             }`}
           >
-            <ShieldCheck className="h-3.5 w-3.5" />
+            <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
             <span>قطع معتمدة OEM ({materials.filter(m => m.oemVerified).length})</span>
           </button>
           {materials.some(m => m.isIncomplete) && (
             <button
               type="button"
               onClick={() => setQuickFilter('incomplete')}
-              className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 whitespace-nowrap ${
                 quickFilter === 'incomplete'
                   ? 'bg-purple-700 text-white shadow-2xs'
                   : 'bg-purple-50 text-purple-800 border border-purple-200 hover:bg-purple-100'
               }`}
             >
-              <Sparkles className="h-3.5 w-3.5" />
+              <Sparkles className="h-3.5 w-3.5 shrink-0" />
               <span>بحاجة إكمال ({materials.filter(m => m.isIncomplete).length})</span>
             </button>
           )}
         </div>
 
         {/* Big Universal Search Bar */}
-        <div className="relative flex items-center gap-2" ref={searchInputContainerRef}>
-          <div className="relative flex-1">
-            <div className="absolute right-4 top-3.5 text-industrial-400 pointer-events-none">
-              <Search className="h-5 w-5 text-brand-600" />
+        <div className="relative flex items-center gap-1.5 sm:gap-2" ref={searchInputContainerRef}>
+          <div className="relative flex-1 min-w-0">
+            <div className="absolute right-4 top-3 sm:top-3.5 text-industrial-400 pointer-events-none">
+              <Search className="h-4.5 w-4.5 sm:h-5 sm:w-5 text-brand-600" />
             </div>
             <input
               type="text"
@@ -898,7 +920,7 @@ export default function SearchView({ materials: rawMaterials = [], currentUser, 
                 }
               }}
               placeholder="Search Part Number, Model, Serial, MR, WO, TAG, Description..."
-              className="w-full bg-brand-50/20 border-2 border-brand-200 focus:border-brand-500 text-sm font-medium pr-12 pl-28 py-3.5 rounded-xl text-industrial-900 placeholder:text-industrial-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 transition-all"
+              className="w-full bg-brand-50/20 border-2 border-brand-200 focus:border-brand-500 text-xs sm:text-sm font-medium pr-10 sm:pr-12 pl-22 sm:pl-28 py-3 sm:py-3.5 rounded-xl text-industrial-900 placeholder:text-industrial-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 transition-all"
             />
             {universalQuery && (
               <button
@@ -906,13 +928,13 @@ export default function SearchView({ materials: rawMaterials = [], currentUser, 
                   setUniversalQuery('');
                   setAiMatchResults(null);
                 }}
-                className="absolute left-24 top-3.5 p-1 rounded-full hover:bg-industrial-200 text-industrial-400 hover:text-industrial-600 cursor-pointer"
+                className="absolute left-20 sm:left-24 top-2.5 sm:top-3.5 p-1 rounded-full hover:bg-industrial-200 text-industrial-400 hover:text-industrial-600 cursor-pointer"
                 title="مسح"
               >
                 <X className="h-4 w-4" />
               </button>
             )}
-            <div className="absolute left-2.5 top-2 flex items-center">
+            <div className="absolute left-2 top-1.5 sm:top-2 flex items-center">
               <NameplateScanner
                 materialsList={materials}
                 onScanSuccess={handleScanSuccess}
@@ -1071,17 +1093,17 @@ export default function SearchView({ materials: rawMaterials = [], currentUser, 
             type="button"
             onClick={handleAiSemanticMatch}
             disabled={isAiMatching || (!universalQuery.trim() && !partQuery.trim())}
-            className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold px-3.5 py-3.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold p-3 sm:px-3.5 sm:py-3.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
             title="مطابقة ذكية بالذكاء الاصطناعي حتى لو كان هناك خطأ إملائي أو رقم غير مكتمل"
           >
             {isAiMatching ? (
               <>
-                <RefreshCw className="h-4 w-4 animate-spin" />
+                <RefreshCw className="h-4 w-4 animate-spin shrink-0" />
                 <span className="hidden md:inline">جاري المطابقة...</span>
               </>
             ) : (
               <>
-                <Sparkles className="h-4 w-4" />
+                <Sparkles className="h-4 w-4 shrink-0" />
                 <span className="hidden md:inline">مطابقة دلالية (AI Match)</span>
               </>
             )}
@@ -1092,18 +1114,19 @@ export default function SearchView({ materials: rawMaterials = [], currentUser, 
             type="button"
             onClick={() => handleFindSubstitutes()}
             disabled={isSearchingSubstitutes || (!universalQuery.trim() && !partQuery.trim() && !modelQuery.trim())}
-            className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-bold px-4 py-3.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-bold px-3 py-3 sm:px-4 sm:py-3.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
             title="البحث عن أقرب بديل هندسي ومقارنة المواصفات ونسبة التطابق"
           >
             {isSearchingSubstitutes ? (
               <>
-                <RefreshCw className="h-4 w-4 animate-spin" />
-                <span>جاري البحث عن بدائل...</span>
+                <RefreshCw className="h-4 w-4 animate-spin shrink-0" />
+                <span className="hidden sm:inline">جاري البحث...</span>
               </>
             ) : (
               <>
-                <Scale className="h-4 w-4" />
-                <span>أقرب بديل هندسي (Nearest Substitute)</span>
+                <Scale className="h-4 w-4 shrink-0" />
+                <span className="hidden md:inline">أقرب بديل هندسي (Nearest Substitute)</span>
+                <span className="md:hidden">أقرب بديل</span>
               </>
             )}
           </button>
@@ -1405,7 +1428,7 @@ export default function SearchView({ materials: rawMaterials = [], currentUser, 
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {unifiedResults.map((item) => {
+                {unifiedResults.map((item, idx) => {
                   const isExternal = item.source === 'EXTERNAL_STOCK';
                   const isStation = item.source === 'STATION_MATERIAL';
                   const isEquipment = item.source === 'EQUIPMENT';
@@ -1413,7 +1436,7 @@ export default function SearchView({ materials: rawMaterials = [], currentUser, 
 
                   return (
                     <motion.div
-                      key={item.id}
+                      key={`${item.id}-${idx}`}
                       whileHover={{ y: -2 }}
                       className={`bg-white p-5 rounded-2xl border shadow-xs flex flex-col justify-between transition-all relative overflow-hidden ${
                         isStation
@@ -1719,12 +1742,12 @@ export default function SearchView({ materials: rawMaterials = [], currentUser, 
                         {/* Part Number & Model */}
                         <div className="flex items-baseline justify-between gap-2 mb-1">
                           <a
-                            href={`?part=${encodeURIComponent(material.partNumber)}`}
-                            onClick={(e) => handleNavigateDirectToMaterial(e, material.partNumber)}
+                            href={`?part=${encodeURIComponent(material.partNumber || material.model || String(material.sequence || ''))}`}
+                            onClick={(e) => handleNavigateDirectToMaterial(e, material)}
                             className="group/pn inline-flex items-center gap-1 font-mono font-bold text-sm text-brand-700 dark:text-brand-400 hover:text-brand-900 dark:hover:text-brand-300 hover:underline truncate tracking-tight cursor-pointer"
                             title="رابط مباشر للانتقال إلى بطاقة المادة في السجل"
                           >
-                            <span>{material.partNumber}</span>
+                            <span>{material.partNumber || material.model || (material.sequence !== undefined ? `Seq #${material.sequence}` : 'عرض المادة')}</span>
                             <ArrowUpRight className="h-3.5 w-3.5 opacity-60 group-hover/pn:opacity-100 group-hover/pn:translate-x-0.5 group-hover/pn:-translate-y-0.5 transition-all" />
                           </a>
                           {material.model && (
