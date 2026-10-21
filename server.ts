@@ -106,12 +106,11 @@ async function startServer() {
     }
 
     const candidateModels = [
-      preferred,
       "gemini-3.1-flash-lite",
+      preferred,
       "gemini-flash-latest",
-      "gemini-3.8-flash",
-      "gemini-3.1-pro-preview"
-    ].filter((m): m is string => Boolean(m) && m !== "gemini-2.5-flash" && m !== "gemini-2.5-pro");
+      "gemini-3.8-flash"
+    ].filter((m): m is string => Boolean(m) && m !== "gemini-2.5-flash" && m !== "gemini-2.5-pro" && m !== "gemini-3.1-pro-preview" && m !== "gemini-3.1-pro");
     const uniqueModels = Array.from(new Set(candidateModels));
     const ai = getAi();
     let lastError: any = null;
@@ -386,7 +385,16 @@ Required fields to analyze:
 14. countryOfOrigin: Country of origin if indicated (e.g., "Germany", "Made in USA")
 15. certificationMarks: Certification markings (e.g., "ATEX", "CE", "FM", "Ex d IIC T6")
 16. barcode: Barcode value or digits if visible
-17. qrCode: QR code payload or digits if visible`
+17. qrCode: QR code payload or digits if visible
+18. tagNumber: Equipment or instrument Tag Number / Tag # if present (e.g. "2021-1-5553-XYS-237")
+19. tagLocation: Field, plant, or facility location (e.g. "N DGS", "Station 1")
+20. workOrder: Work Order # / WO # (e.g. "210000337100")
+21. mrReference: Material Request Reference / MR # (e.g. "0226-14344-00-00-1")
+22. contractor: Contractor or vendor name (e.g. "PETROMAINT")
+23. deliveryTerms: Delivery terms or warehouse destination (e.g. "DDP ZUBAIR WAREHOUSE")
+24. description: Full equipment / item description (e.g. "SOLENOID VALVE MANUFACTURER: BIFOLD...")
+25. quantity: Total quantity or count of items
+26. unit: Unit of measure (e.g. "Each", "pcs", "SET")`
       };
 
       const fieldSchema = {
@@ -423,6 +431,15 @@ Required fields to analyze:
               certificationMarks: fieldSchema,
               barcode: fieldSchema,
               qrCode: fieldSchema,
+              tagNumber: fieldSchema,
+              tagLocation: fieldSchema,
+              workOrder: fieldSchema,
+              mrReference: fieldSchema,
+              contractor: fieldSchema,
+              deliveryTerms: fieldSchema,
+              description: fieldSchema,
+              quantity: fieldSchema,
+              unit: fieldSchema,
             },
             required: [
               "manufacturer", "brand", "model", "partNumber", "serialNumber", 

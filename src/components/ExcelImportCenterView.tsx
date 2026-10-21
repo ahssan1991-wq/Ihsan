@@ -70,6 +70,8 @@ export const ExcelImportCenterView: React.FC<ExcelImportCenterViewProps> = ({
   const [mrCol, setMrCol] = useState<string>('');
   const [poCol, setPoCol] = useState<string>('');
   const [woCol, setWoCol] = useState<string>('');
+  const [tagCol, setTagCol] = useState<string>('');
+  const [locationCol, setLocationCol] = useState<string>('');
   
   // Import Execution state
   const [isImporting, setIsImporting] = useState<boolean>(false);
@@ -107,9 +109,11 @@ export const ExcelImportCenterView: React.FC<ExcelImportCenterViewProps> = ({
     setRackCol(findMatch(['rack', 'رف']));
     setShelfCol(findMatch(['shelf', 'خانة']));
     setSerialCol(findMatch(['serial', 'serialnumber', 'sn', 'تسلسلي']));
-    setMrCol(findMatch(['mr', 'mrnumber', 'mrf', 'طلب']));
+    setMrCol(findMatch(['mr', 'mrnumber', 'mrf', 'طلب', 'طلبالصرف']));
     setPoCol(findMatch(['po', 'ponumber', 'شراء']));
-    setWoCol(findMatch(['wo', 'workorder', 'عمل']));
+    setWoCol(findMatch(['wo', 'workorder', 'عمل', 'امرالعمل']));
+    setTagCol(findMatch(['tag', 'tagnumber', 'tagno', 'tag#', 'التاغ', 'بطاقة', 'رقمبطاقةالمعدة']));
+    setLocationCol(findMatch(['installation', 'installationlocation', 'installloc', 'مكانالتثبيت', 'موقعالتثبيت', 'مكانالتركيب', 'موقعالتركيب']));
   };
 
   // Handle file selection
@@ -227,6 +231,8 @@ export const ExcelImportCenterView: React.FC<ExcelImportCenterViewProps> = ({
       const mr = mrCol && row[mrCol] ? String(row[mrCol]).trim() : '';
       const po = poCol && row[poCol] ? String(row[poCol]).trim() : '';
       const wo = woCol && row[woCol] ? String(row[woCol]).trim() : '';
+      const tagNumber = tagCol && row[tagCol] ? String(row[tagCol]).trim() : '';
+      const installationLocation = locationCol && row[locationCol] ? String(row[locationCol]).trim() : '';
 
       const normPn = dbService.normalizeToken(pn);
       const normSn = dbService.normalizeToken(serial);
@@ -256,8 +262,13 @@ export const ExcelImportCenterView: React.FC<ExcelImportCenterViewProps> = ({
         shelf,
         mr,
         mrf: mr,
+        mrfNumber: mr,
         po,
         wo,
+        woNumber: wo,
+        tagNumber: tagNumber || undefined,
+        installationLocation: installationLocation || undefined,
+        tagLocation: installationLocation || undefined,
         status: 'Available',
         importVersion: 1,
         importBatchId: batchId,
@@ -631,6 +642,36 @@ export const ExcelImportCenterView: React.FC<ExcelImportCenterViewProps> = ({
                     <select
                       value={rackCol}
                       onChange={(e) => setRackCol(e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-industrial-300 dark:border-industrial-700 bg-white dark:bg-industrial-850 text-industrial-900 dark:text-white"
+                    >
+                      <option value="">-- Select Column --</option>
+                      {detectedHeaders.map(h => <option key={h} value={h}>{h}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Tag Number */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-industrial-700 dark:text-industrial-300 mb-1">
+                      Tag Number (رقم التاغ)
+                    </label>
+                    <select
+                      value={tagCol}
+                      onChange={(e) => setTagCol(e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-industrial-300 dark:border-industrial-700 bg-white dark:bg-industrial-850 text-industrial-900 dark:text-white"
+                    >
+                      <option value="">-- Select Column --</option>
+                      {detectedHeaders.map(h => <option key={h} value={h}>{h}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Installation Location */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-industrial-700 dark:text-industrial-300 mb-1">
+                      Installation Location (مكان التثبيت والتركيب)
+                    </label>
+                    <select
+                      value={locationCol}
+                      onChange={(e) => setLocationCol(e.target.value)}
                       className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-industrial-300 dark:border-industrial-700 bg-white dark:bg-industrial-850 text-industrial-900 dark:text-white"
                     >
                       <option value="">-- Select Column --</option>

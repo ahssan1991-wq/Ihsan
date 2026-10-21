@@ -51,6 +51,10 @@ export default function AddMaterialView({
   const [manufacturer, setManufacturer] = useState('');
   const [model, setModel] = useState('');
   const [serialNumber, setSerialNumber] = useState('');
+  const [tagNumber, setTagNumber] = useState('');
+  const [installationLocation, setInstallationLocation] = useState('');
+  const [woNumber, setWoNumber] = useState('');
+  const [mrfNumber, setMrfNumber] = useState('');
   const [quantity, setQuantity] = useState<number>(0);
   const [unit, setUnit] = useState('pcs');
   const [station, setStation] = useState('ZFOD Warehouse');
@@ -74,6 +78,15 @@ export default function AddMaterialView({
       if (initialPrefillData.manufacturer) setManufacturer(initialPrefillData.manufacturer);
       if (initialPrefillData.model) setModel(initialPrefillData.model);
       if (initialPrefillData.serialNumber) setSerialNumber(initialPrefillData.serialNumber);
+      if (initialPrefillData.tagNumber) setTagNumber(initialPrefillData.tagNumber);
+      if (initialPrefillData.installationLocation) setInstallationLocation(initialPrefillData.installationLocation);
+      if (initialPrefillData.tagLocation) setInstallationLocation(initialPrefillData.tagLocation);
+      if (initialPrefillData.woNumber) setWoNumber(initialPrefillData.woNumber);
+      if (initialPrefillData.workOrder) setWoNumber(initialPrefillData.workOrder);
+      if (initialPrefillData.mrfNumber) setMrfNumber(initialPrefillData.mrfNumber);
+      if (initialPrefillData.mrf) setMrfNumber(initialPrefillData.mrf);
+      if (initialPrefillData.mrfReference) setMrfNumber(initialPrefillData.mrfReference);
+      if (initialPrefillData.mrReference) setMrfNumber(initialPrefillData.mrReference);
       if (initialPrefillData.description) setDescription(initialPrefillData.description);
       else if (initialPrefillData.manufacturer && initialPrefillData.model) {
         setDescription(`${initialPrefillData.manufacturer} ${initialPrefillData.model} Industrial Component`);
@@ -325,6 +338,15 @@ export default function AddMaterialView({
       description: description.trim(),
       manufacturer: manufacturer.trim(),
       model: model.trim() || 'N/A',
+      tagNumber: tagNumber.trim() || undefined,
+      installationLocation: installationLocation.trim() || undefined,
+      tagLocation: installationLocation.trim() || undefined,
+      woNumber: woNumber.trim() || undefined,
+      workOrder: woNumber.trim() || undefined,
+      mrfNumber: mrfNumber.trim() || undefined,
+      mrf: mrfNumber.trim() || undefined,
+      mrfReference: mrfNumber.trim() || undefined,
+      mrReference: mrfNumber.trim() || undefined,
       quantity: Math.max(0, quantity),
       unit: unit,
       station: station.trim() || 'ZFOD Warehouse',
@@ -378,6 +400,10 @@ export default function AddMaterialView({
       setDescription('');
       setManufacturer('');
       setModel('');
+      setTagNumber('');
+      setInstallationLocation('');
+      setWoNumber('');
+      setMrfNumber('');
       setQuantity(0);
       setUnit('pcs');
       setStore('Electronics Lab (Lab A)');
@@ -964,6 +990,93 @@ export default function AddMaterialView({
                 placeholder="e.g. SN-A26025691"
                 className="w-full bg-industrial-50 border border-industrial-200 text-xs px-3.5 py-2.5 rounded-xl text-industrial-800 font-mono focus:outline-none focus:ring-1.5 focus:ring-brand-500"
               />
+            </div>
+          </div>
+        </div>
+
+        {/* Section 1.5: Engineering Tag & Field Installation Location */}
+        <div className="p-6 space-y-4 bg-industrial-50/40 border-t border-industrial-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <h3 className="text-xs font-bold text-industrial-700 uppercase tracking-widest font-mono flex items-center gap-1.5">
+              <Tag className="h-3.5 w-3.5 text-purple-600" />
+              <span>Section 1.5: Engineering Tag & Field Installation / التاغ الهندسي وموقع التثبيت الفعلي</span>
+            </h3>
+            <span className="text-[10.5px] font-medium text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-md border border-purple-200">
+              لتثبيت موقع المواد (مثل السيلينويد) وأرقام العمل والمطالبات
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Tag Number */}
+            <div>
+              <label htmlFor="tag-number-input" className="block text-xs font-semibold text-industrial-700 mb-1.5">
+                Tag Number (رقم بطاقة المعدة / التاغ الهندسي)
+              </label>
+              <input
+                id="tag-number-input"
+                type="text"
+                value={tagNumber}
+                onChange={(e) => setTagNumber(e.target.value)}
+                placeholder="e.g. 2021-1-5553-XYS-237 أو SOV-4011-A"
+                className="w-full bg-white border border-industrial-200 text-xs px-3.5 py-2.5 rounded-xl text-industrial-800 font-mono uppercase focus:outline-none focus:ring-1.5 focus:ring-brand-500 shadow-2xs"
+              />
+              <p className="text-[10px] text-industrial-450 mt-1">
+                الرقم الهندسي الخاص بالقطعة أو المعدة (Tag #)
+              </p>
+            </div>
+
+            {/* Field Installation Location */}
+            <div>
+              <label htmlFor="installation-loc-input" className="block text-xs font-semibold text-industrial-700 mb-1.5">
+                Field Installation & Mounting Location (مكان التثبيت والتركيب الميداني الفعلي)
+              </label>
+              <input
+                id="installation-loc-input"
+                type="text"
+                value={installationLocation}
+                onChange={(e) => setInstallationLocation(e.target.value)}
+                placeholder="e.g. Turbine Skid-A, Solenoid Manifold #3 أو مكان تثبيت السلينويد"
+                className="w-full bg-white border border-industrial-200 text-xs px-3.5 py-2.5 rounded-xl text-industrial-800 focus:outline-none focus:ring-1.5 focus:ring-brand-500 shadow-2xs"
+              />
+              <p className="text-[10px] text-industrial-450 mt-1">
+                الموقع الدقيق لتثبيت المادة في المحطة أو على المعدة في الموقع
+              </p>
+            </div>
+
+            {/* Work Order (WO #) */}
+            <div>
+              <label htmlFor="wo-number-input" className="block text-xs font-semibold text-industrial-700 mb-1.5">
+                Work Order (WO # / رقم أمر العمل)
+              </label>
+              <input
+                id="wo-number-input"
+                type="text"
+                value={woNumber}
+                onChange={(e) => setWoNumber(e.target.value)}
+                placeholder="e.g. WO-2024-8841"
+                className="w-full bg-white border border-industrial-200 text-xs px-3.5 py-2.5 rounded-xl text-industrial-800 font-mono uppercase focus:outline-none focus:ring-1.5 focus:ring-brand-500 shadow-2xs"
+              />
+              <p className="text-[10px] text-industrial-450 mt-1">
+                رقم أمر العمل المرتبط بتركيب أو صيانة هذه المادة
+              </p>
+            </div>
+
+            {/* MRF Number */}
+            <div>
+              <label htmlFor="mrf-number-input" className="block text-xs font-semibold text-industrial-700 mb-1.5">
+                Material Request Form (MRF # / رقم طلب صرف المواد)
+              </label>
+              <input
+                id="mrf-number-input"
+                type="text"
+                value={mrfNumber}
+                onChange={(e) => setMrfNumber(e.target.value)}
+                placeholder="e.g. MRF-2024-0912 أو 0226-14344-00-00-1"
+                className="w-full bg-white border border-industrial-200 text-xs px-3.5 py-2.5 rounded-xl text-industrial-800 font-mono uppercase focus:outline-none focus:ring-1.5 focus:ring-brand-500 shadow-2xs"
+              />
+              <p className="text-[10px] text-industrial-450 mt-1">
+                رقم استمارة أو طلب صرف وتوريد المادة (MR / MRF)
+              </p>
             </div>
           </div>
         </div>

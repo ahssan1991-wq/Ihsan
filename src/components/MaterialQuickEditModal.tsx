@@ -28,7 +28,8 @@ import {
   Info,
   Maximize2,
   Camera,
-  MapPin
+  MapPin,
+  Tag
 } from 'lucide-react';
 import { Material, User, MaterialDocument, MaterialPhotoLibrary } from '../types';
 import { dbService } from '../services/dbService';
@@ -73,6 +74,12 @@ export default function MaterialQuickEditModal({
   const [shelf, setShelf] = useState('');
   const [notes, setNotes] = useState('');
   const [engineeringNotes, setEngineeringNotes] = useState('');
+
+  // Engineering & Field Installation Location
+  const [tagNumber, setTagNumber] = useState('');
+  const [installationLocation, setInstallationLocation] = useState('');
+  const [workOrder, setWorkOrder] = useState('');
+  const [mrfReference, setMrfReference] = useState('');
 
   // OEM & Verification
   const [oemVerified, setOemVerified] = useState(false);
@@ -125,6 +132,10 @@ export default function MaterialQuickEditModal({
       setShelf(material.shelf || '');
       setNotes(material.notes || '');
       setEngineeringNotes(material.engineeringNotes || '');
+      setTagNumber(material.tagNumber || '');
+      setInstallationLocation(material.installationLocation || material.tagLocation || '');
+      setWorkOrder(material.workOrder || material.woNumber || '');
+      setMrfReference(material.mrfReference || material.mrfNumber || material.mrf || material.mrReference || '');
 
       setOemVerified(!!material.oemVerified);
       setOemVerificationStatus(material.oemVerificationStatus || 'pending');
@@ -292,6 +303,15 @@ export default function MaterialQuickEditModal({
         model: model.trim(),
         brand: brand.trim(),
         serialNumber: serialNumber.trim(),
+        tagNumber: tagNumber.trim() || undefined,
+        installationLocation: installationLocation.trim() || undefined,
+        tagLocation: installationLocation.trim() || undefined,
+        workOrder: workOrder.trim() || undefined,
+        woNumber: workOrder.trim() || undefined,
+        mrfReference: mrfReference.trim() || undefined,
+        mrfNumber: mrfReference.trim() || undefined,
+        mrf: mrfReference.trim() || undefined,
+        mrReference: mrfReference.trim() || undefined,
         quantity: Math.max(0, quantity),
         unit: unit.trim(),
         minStockLevel: Math.max(0, minStockLevel),
@@ -674,6 +694,73 @@ export default function MaterialQuickEditModal({
                     placeholder="e.g. SN-89234710"
                     className="w-full px-3 py-2 bg-white dark:bg-industrial-900 border border-industrial-300 dark:border-industrial-700 rounded-xl text-xs font-mono focus:ring-1.5 focus:ring-brand-500 focus:outline-hidden"
                   />
+                </div>
+
+                {/* Engineering Tag & Field Installation Location Card (WO & MRF) */}
+                <div className="md:col-span-2 bg-purple-50/60 dark:bg-purple-950/30 p-4 rounded-xl border border-purple-200 dark:border-purple-800 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                    <label className="text-xs font-bold text-industrial-800 dark:text-industrial-200 flex items-center gap-1.5">
+                      <Tag className="w-4 h-4 text-purple-600" />
+                      <span>التاغ الهندسي وموقع التثبيت الميداني وأوامر العمل / Engineering Tag & Field Location</span>
+                    </label>
+                    <span className="text-[10px] text-purple-700 bg-purple-100 dark:bg-purple-900/60 px-2 py-0.5 rounded border border-purple-200 dark:border-purple-800 font-medium">
+                      لتحديد مكان تثبيت الصنف الفعلي كالسيلينويد وأرقام WO و MRF
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-industrial-700 dark:text-industrial-300 mb-1">
+                        Tag Number (رقم بطاقة المعدة / التاغ الهندسي):
+                      </label>
+                      <input
+                        type="text"
+                        value={tagNumber}
+                        onChange={(e) => setTagNumber(e.target.value)}
+                        placeholder="e.g. 2021-1-5553-XYS-237 أو SOV-4011-A"
+                        className="w-full px-3 py-2 bg-white dark:bg-industrial-900 border border-purple-200 dark:border-purple-700 rounded-xl text-xs font-mono uppercase focus:ring-1.5 focus:ring-purple-500 focus:outline-hidden"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-industrial-700 dark:text-industrial-300 mb-1">
+                        موقع التثبيت والتركيب الميداني الفعلي (Installation Location):
+                      </label>
+                      <input
+                        type="text"
+                        value={installationLocation}
+                        onChange={(e) => setInstallationLocation(e.target.value)}
+                        placeholder="e.g. Turbine Skid-A, Solenoid Manifold #3 (مكان تثبيت السيلينويد)"
+                        className="w-full px-3 py-2 bg-white dark:bg-industrial-900 border border-purple-200 dark:border-purple-700 rounded-xl text-xs focus:ring-1.5 focus:ring-purple-500 focus:outline-hidden"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-industrial-700 dark:text-industrial-300 mb-1">
+                        Work Order (رقم أمر العمل WO #):
+                      </label>
+                      <input
+                        type="text"
+                        value={workOrder}
+                        onChange={(e) => setWorkOrder(e.target.value)}
+                        placeholder="e.g. WO-2024-8841"
+                        className="w-full px-3 py-2 bg-white dark:bg-industrial-900 border border-purple-200 dark:border-purple-700 rounded-xl text-xs font-mono uppercase focus:ring-1.5 focus:ring-purple-500 focus:outline-hidden"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-industrial-700 dark:text-industrial-300 mb-1">
+                        MRF Number (رقم طلب صرف وتوريد المواد MRF #):
+                      </label>
+                      <input
+                        type="text"
+                        value={mrfReference}
+                        onChange={(e) => setMrfReference(e.target.value)}
+                        placeholder="e.g. MRF-2024-001 أو 0226-14344-00-00-1"
+                        className="w-full px-3 py-2 bg-white dark:bg-industrial-900 border border-purple-200 dark:border-purple-700 rounded-xl text-xs font-mono uppercase focus:ring-1.5 focus:ring-purple-500 focus:outline-hidden"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Storage Location & Station Card */}

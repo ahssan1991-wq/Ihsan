@@ -57,6 +57,7 @@ import { WorkflowApprovalsView } from './components/WorkflowApprovalsView';
 import { LiveBarcodeScannerModal } from './components/LiveBarcodeScannerModal';
 import { OrganizationSettingsModal } from './components/OrganizationSettingsModal';
 import DeviceInstallModal from './components/DeviceInstallModal';
+import SystemPresentationModal from './components/SystemPresentationModal';
 import { softDeleteRecord } from './services/port13Service';
 
 import { 
@@ -117,6 +118,7 @@ export default function App() {
   const [isLiveScannerOpen, setIsLiveScannerOpen] = useState(false);
   const [isOrganizationSettingsOpen, setIsOrganizationSettingsOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+  const [isPresentationOpen, setIsPresentationOpen] = useState(false);
 
   // Material Intelligence Modal State (Port 9)
   const [intelligenceMaterial, setIntelligenceMaterial] = useState<Material | null>(null);
@@ -685,6 +687,7 @@ export default function App() {
             equipment={equipment}
             currentUser={currentUser}
             onNavigateToTab={handleNavigateWithSearch}
+            onOpenPresentation={() => setIsPresentationOpen(true)}
           />
         );
       case 'google-drive':
@@ -1113,6 +1116,12 @@ export default function App() {
         onClose={() => setIsInstallModalOpen(false)}
       />
 
+      {/* Comprehensive System Features Presentation (PowerPoint) Modal */}
+      <SystemPresentationModal
+        isOpen={isPresentationOpen}
+        onClose={() => setIsPresentationOpen(false)}
+      />
+
       {/* Floating Interactive Quick-Action Speed Dial */}
       <AnimatePresence>
         {isFabOpen && (
@@ -1138,6 +1147,21 @@ export default function App() {
               transition={{ duration: 0.2, ease: "easeOut" }}
               className="flex flex-col items-end gap-2"
             >
+              {/* Comprehensive System Presentation (PowerPoint) Shortcut */}
+              <button
+                onClick={() => {
+                  setIsPresentationOpen(true);
+                  setIsFabOpen(false);
+                }}
+                className="flex items-center gap-2.5 px-3.5 py-2 bg-gradient-to-r from-amber-900/85 to-indigo-950/85 hover:from-amber-800/90 hover:to-indigo-900/90 text-amber-300 border border-amber-500/40 hover:border-amber-400 rounded-xl shadow-xl text-xs font-semibold backdrop-blur-xl transition-all duration-200 ease-out hover:-translate-x-1.5 active:scale-95 cursor-pointer group"
+                id="fab-system-presentation"
+              >
+                <span className="text-[11px] text-white font-medium">📊 العرض التقديمي لخواص المنظومة (PowerPoint)</span>
+                <div className="p-1.5 bg-amber-500/20 rounded-lg group-hover:scale-110 group-hover:bg-amber-500/30 transition-all duration-200">
+                  <Sparkles className="h-4 w-4 text-amber-300" />
+                </div>
+              </button>
+
               {/* Direct Device / PWA Installation Shortcut */}
               <button
                 onClick={() => {

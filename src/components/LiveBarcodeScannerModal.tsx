@@ -108,9 +108,16 @@ export const LiveBarcodeScannerModal: React.FC<LiveBarcodeScannerModalProps> = (
       }
     }
 
-    // Partial contains match
-    match = materials.find(m => clean.includes(m.partNumber.toLowerCase()));
-    return match || null;
+    // Partial contains match - ONLY if partNumber has sufficient length (>= 5 characters) to prevent false positive matches
+    if (clean.length >= 5) {
+      match = materials.find(m => {
+        const pn = m.partNumber.trim().toLowerCase();
+        return pn.length >= 5 && (clean === pn || clean.includes(pn));
+      });
+      if (match) return match;
+    }
+
+    return null;
   };
 
   const handleScanSuccess = (decodedText: string) => {
@@ -145,8 +152,12 @@ export const LiveBarcodeScannerModal: React.FC<LiveBarcodeScannerModalProps> = (
       await html5QrCode.start(
         cameraConfig,
         {
-          fps: 15,
-          qrbox: { width: 280, height: 280 },
+          fps: 20,
+          qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+            const minDim = Math.min(viewfinderWidth, viewfinderHeight);
+            const boxSize = Math.max(220, Math.floor(minDim * 0.72));
+            return { width: boxSize, height: boxSize };
+          },
           aspectRatio: 1.0
         },
         (decodedText) => {

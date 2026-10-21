@@ -75,6 +75,12 @@ interface ParsedRow {
   measuringRange?: string;
   originalQuantity?: number;
   remainingQuantity?: number;
+
+  // Tag, Field Installation Location & Work Orders
+  tagNumber?: string;
+  installationLocation?: string;
+  woNumber?: string;
+  mrfNumber?: string;
 }
 
 export default function ExcelImportModal({ 
@@ -108,7 +114,11 @@ export default function ExcelImportModal({
     station: '',
     internalId: '',
     materialCode: '',
-    engineeringComments: ''
+    engineeringComments: '',
+    tagNumber: '',
+    installationLocation: '',
+    woNumber: '',
+    mrfNumber: ''
   });
 
   // Default Station selection state (allows free-text typing & suggestions)
@@ -143,6 +153,10 @@ export default function ExcelImportModal({
   const expectedFields = [
     { key: 'sequence', label: 'Material Sequence (التسلسل المادي)', required: false, keys: ['sequence', 'seq', 'seqno', 'order', 'الترتيب', 'التسلسل', 'sequence_number', 'sequenceno'] },
     { key: 'partNumber', label: 'Part Number / رقم القطعة (اختياري / Optional)', required: false, keys: ['partnumber', 'partno', 'part#', 'pn', 'sku', 'رقم_القطعة', 'رقمالقطعة', 'part'] },
+    { key: 'tagNumber', label: 'Tag Number / رقم التاغ الهندسي (بطاقة المعدة)', required: false, keys: ['tagnumber', 'tagno', 'tag_no', 'tag#', 'tag', 'رقم_التاغ', 'التاغ', 'بطاقة_المعدة', 'رقم_البطاقة', 'tag_number', 'equipmenttag', 'eqtag'] },
+    { key: 'installationLocation', label: 'Installation Location / مكان وموقع التثبيت والتركيب', required: false, keys: ['installationlocation', 'installation_location', 'installedlocation', 'installed_location', 'installloc', 'install_loc', 'مكان_التثبيت', 'موقع_التثبيت', 'مكان_التركيب', 'موقع_التركيب', 'موقع_المعدة', 'مكان_المعدة', 'location_plant', 'mountinglocation', 'mounting_location'] },
+    { key: 'woNumber', label: 'Work Order (WO #) / رقم أمر العمل', required: false, keys: ['wonumber', 'wo_number', 'workorder', 'work_order', 'wo', 'wo#', 'امر_العمل', 'رقم_امر_العمل', 'أمر_العمل', 'رقم_العمل'] },
+    { key: 'mrfNumber', label: 'MRF Number / رقم طلب صرف المواد', required: false, keys: ['mrfnumber', 'mrf_number', 'mrf', 'mrf#', 'mrnumber', 'mr_number', 'mr', 'طلب_الصرف', 'طلب_المواد', 'رقم_طلب_المواد', 'رقم_الطلب', 'requisition'] },
     { key: 'description', label: 'Description / الوصف', required: false, keys: ['description', 'desc', 'details', 'itemname', 'item_name', 'الوصف', 'اسم_المادة', 'المادة'] },
     { key: 'manufacturer', label: 'Manufacturer / المصنع', required: false, keys: ['manufacturer', 'mfg', 'brand', 'maker', 'producer', 'المصنع', 'الشركة_المصنعة'] },
     { key: 'brand', label: 'Brand / الماركة', required: false, keys: ['brand', 'الماركة', 'براند', 'العلامة_التجارية'] },
@@ -346,6 +360,12 @@ export default function ExcelImportModal({
       const materialCode = getVal('materialCode');
       const engineeringComments = getVal('engineeringComments');
 
+      // Tag Number, Field Installation Location & Work Orders
+      const tagNumber = getVal('tagNumber');
+      const installationLocation = getVal('installationLocation');
+      const woNumber = getVal('woNumber');
+      const mrfNumber = getVal('mrfNumber');
+
       // Unmapped columns
       const mappedHeadersValues = Object.values(columnMap).filter(Boolean);
       const unmappedHeaders = sheetHeaders.filter(h => !mappedHeadersValues.includes(h));
@@ -421,7 +441,11 @@ export default function ExcelImportModal({
         serialNumber,
         measuringRange,
         originalQuantity,
-        remainingQuantity
+        remainingQuantity,
+        tagNumber,
+        installationLocation,
+        woNumber,
+        mrfNumber
       };
     });
 
@@ -524,6 +548,19 @@ export default function ExcelImportModal({
           if (row.sequence !== undefined) updatedMaterial.sequence = row.sequence;
           if (row.station) updatedMaterial.station = row.station;
           if (row.internalId) updatedMaterial.internalId = row.internalId;
+          if (row.tagNumber) updatedMaterial.tagNumber = row.tagNumber;
+          if (row.installationLocation) {
+            updatedMaterial.installationLocation = row.installationLocation;
+            updatedMaterial.tagLocation = row.installationLocation;
+          }
+          if (row.woNumber) {
+            updatedMaterial.woNumber = row.woNumber;
+            updatedMaterial.workOrder = row.woNumber;
+          }
+          if (row.mrfNumber) {
+            updatedMaterial.mrfNumber = row.mrfNumber;
+            updatedMaterial.mrf = row.mrfNumber;
+          }
           historyNotes += 'Full database fields replaced.';
         } else if (strategy === 'update_qty') {
           const oldQty = existing.quantity || 0;
@@ -534,6 +571,10 @@ export default function ExcelImportModal({
           updatedMaterial.rack = row.rack;
           updatedMaterial.shelf = row.shelf;
           if (row.station) updatedMaterial.station = row.station;
+          if (row.installationLocation) {
+            updatedMaterial.installationLocation = row.installationLocation;
+            updatedMaterial.tagLocation = row.installationLocation;
+          }
           historyNotes += `Location coordinates updated to Store Room: ${row.warehouse}, Rack: ${row.rack}, Shelf: ${row.shelf}.`;
         } else if (strategy === 'update_mfr') {
           updatedMaterial.manufacturer = row.manufacturer;
@@ -551,6 +592,19 @@ export default function ExcelImportModal({
           }
           if (row.sequence !== undefined) updatedMaterial.sequence = row.sequence;
           if (row.internalId) updatedMaterial.internalId = row.internalId;
+          if (row.tagNumber && !updatedMaterial.tagNumber) updatedMaterial.tagNumber = row.tagNumber;
+          if (row.installationLocation && !updatedMaterial.installationLocation) {
+            updatedMaterial.installationLocation = row.installationLocation;
+            updatedMaterial.tagLocation = row.installationLocation;
+          }
+          if (row.woNumber && !updatedMaterial.woNumber) {
+            updatedMaterial.woNumber = row.woNumber;
+            updatedMaterial.workOrder = row.woNumber;
+          }
+          if (row.mrfNumber && !updatedMaterial.mrfNumber) {
+            updatedMaterial.mrfNumber = row.mrfNumber;
+            updatedMaterial.mrf = row.mrfNumber;
+          }
           historyNotes += 'Merged engineering notes and preserved database attributes.';
         }
 
@@ -617,6 +671,13 @@ export default function ExcelImportModal({
           measuringRange: row.measuringRange,
           originalQuantity: row.originalQuantity,
           remainingQuantity: row.remainingQuantity,
+          tagNumber: row.tagNumber,
+          installationLocation: row.installationLocation,
+          tagLocation: row.installationLocation,
+          woNumber: row.woNumber,
+          workOrder: row.woNumber,
+          mrfNumber: row.mrfNumber,
+          mrf: row.mrfNumber,
           serialNumbers: [],
           healthScore: 85,
           oemVerified: false,
@@ -1083,7 +1144,22 @@ export default function ExcelImportModal({
                                 </span>
                               </div>
                             ) : (
-                              row.partNumber || <span className="text-red-600 italic">EMPTY</span>
+                              <div>
+                                <span className="font-bold text-industrial-900">{row.partNumber || <span className="text-red-600 italic">EMPTY</span>}</span>
+                                {row.tagNumber && (
+                                  <div className="flex items-center gap-1 mt-0.5">
+                                    <span className="text-[9px] font-mono font-bold text-purple-700 bg-purple-50 px-1.5 py-0.2 rounded border border-purple-200">
+                                      Tag: {row.tagNumber}
+                                    </span>
+                                  </div>
+                                )}
+                                {(row.woNumber || row.mrfNumber) && (
+                                  <div className="flex items-center gap-1 mt-0.5 text-[8.5px] font-mono text-industrial-500">
+                                    {row.woNumber && <span className="bg-sky-50 text-sky-700 px-1 rounded border border-sky-200">WO: {row.woNumber}</span>}
+                                    {row.mrfNumber && <span className="bg-amber-50 text-amber-700 px-1 rounded border border-amber-200">MRF: {row.mrfNumber}</span>}
+                                  </div>
+                                )}
+                              </div>
                             )}
                           </td>
                           <td className="p-2 max-w-[180px] truncate text-industrial-800 font-sans" title={row.description}>{row.description || <span className="text-red-600 italic">EMPTY</span>}</td>
@@ -1095,6 +1171,11 @@ export default function ExcelImportModal({
                           <td className="p-2 font-sans">
                             <span className="font-semibold text-industrial-800 block">{row.warehouse}</span>
                             <span className="text-[10px] text-industrial-500 font-mono block">Rack {row.rack} / Shelf {row.shelf}</span>
+                            {row.installationLocation && (
+                              <span className="inline-flex items-center gap-1 text-[9px] text-emerald-800 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200 mt-0.5 font-medium">
+                                📍 مكان التثبيت: {row.installationLocation}
+                              </span>
+                            )}
                           </td>
                           <td className="p-2 text-center border-l border-industrial-100">
                             {row.hasConflict ? (

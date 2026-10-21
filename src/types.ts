@@ -568,6 +568,20 @@ export interface Material {
   updatedAt: string;
 
   // ZFOD Enterprise Instrument Department & EMIS v2.0 Procurement Fields
+  tagNumber?: string; // Equipment Tag # e.g. "2021-1-5553-XYS-237"
+  tagLocation?: string; // Plant / Facility location e.g. "N DGS", "Station 1"
+  installationLocation?: string; // Field Installation & Mounting Location مكان التثبيت والتركيب الفعلي للمادة أو السلينويد e.g. "Turbine Skid-A, Solenoid Manifold #3"
+  installedEquipment?: string; // Linked Equipment name/description المعدة المثبت عليها الصنف e.g. "Main Compressor K-101"
+  functionalLocation?: string; // Functional Location e.g. "FL-PLANT-01-GAS-COMP"
+  mrReference?: string; // Material Request Reference e.g. "0226-14344-00-00-1"
+  mrfReference?: string; // Material Requisition Form Reference e.g. "MRF-2024-001" or "0226-14344-00-00-1"
+  contractor?: string; // Contractor / Vendor e.g. "PETROMAINT"
+  quotationType?: string; // e.g. "OPEN"
+  deliveryTerms?: string; // Delivery Terms e.g. "DDP ZUBAIR WAREHOUSE"
+  offerPrice?: number; // Commercial offer price
+  totalOfferCost?: number; // Total cost from commercial evaluation
+  barcode?: string; // 1D Barcode code string
+  qrCode?: string; // 2D QR Code data payload
   brand?: string;
   serialNumber?: string;
   measuringRange?: string;
@@ -575,6 +589,7 @@ export interface Material {
   remainingQuantity?: number;
   binLocation?: string;
   workOrder?: string;
+  woNumber?: string; // Work Order # alias e.g. "WO-2024-8841"
   woNumbers?: string[]; // Multiple associated Work Orders e.g. ["WO-12345", "WO-99882"]
   mrf?: string;
   mrfNumber?: string; // Standard MRF identifier
@@ -920,9 +935,13 @@ export interface ExternalMaterial {
   shelf?: string;
   mr?: string;
   mrf?: string;
+  mrfNumber?: string;
   po?: string;
   wo?: string;
+  woNumber?: string;
   tagNumber?: string;
+  installationLocation?: string;
+  tagLocation?: string;
   status: string;
   normalizedPartNumber: string; // للبحث السريع بدون رموز
   normalizedSerialNumber: string;

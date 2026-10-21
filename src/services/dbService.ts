@@ -34,8 +34,8 @@ let firestoreDb: any = null;
 try {
   if (firebaseConfig && firebaseConfig.apiKey && firebaseConfig.apiKey !== 'remixed-api-key') {
     const app = initializeApp(firebaseConfig);
-    if (firebaseConfig.firestoreDatabaseId) {
-      firestoreDb = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+    if ((firebaseConfig as any).firestoreDatabaseId) {
+      firestoreDb = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId);
     } else {
       firestoreDb = getFirestore(app);
     }
@@ -2277,20 +2277,45 @@ export const dbService = {
         score = 800;
         highlight = 'serialNumber';
       }
+      // Level 3.5: Tag Number Match (e.g. 2021-1-5553-XYS-237, SOV-4011)
+      else if (
+        (m.tagNumber && (m.tagNumber.toUpperCase() === trimmed.toUpperCase() || m.tagNumber.toUpperCase().includes(trimmed.toUpperCase()))) ||
+        (m.tagNumber && queryNorm && dbService.normalizeToken(m.tagNumber).includes(queryNorm))
+      ) {
+        matched = true;
+        rank = 3.5;
+        category = `Tag Number Match (${m.tagNumber})`;
+        score = 780;
+        highlight = 'tagNumber';
+      }
       // Level 4: Exact MR / MRF / WO
       else if (
         (mrNorm && queryNorm && mrNorm.includes(queryNorm)) ||
         (m.mrNumber && m.mrNumber.toLowerCase().includes(queryLower)) ||
+        (m.mrf && m.mrf.toLowerCase().includes(queryLower)) ||
         (m.mrfNumber && m.mrfNumber.toLowerCase().includes(queryLower)) ||
         (woNorm && queryNorm && woNorm.includes(queryNorm)) ||
         (m.workOrder && m.workOrder.toLowerCase().includes(queryLower)) ||
+        (m.woNumber && m.woNumber.toLowerCase().includes(queryLower)) ||
         (m.woNumbers && m.woNumbers.some(w => w.toLowerCase().includes(queryLower) || dbService.normalizeToken(w).includes(queryNorm)))
       ) {
         matched = true;
         rank = 4;
-        category = (mrNorm && queryNorm && mrNorm.includes(queryNorm)) || (m.mrNumber && m.mrNumber.toLowerCase().includes(queryLower)) ? 'MR / MRF Record Match' : 'Work Order Match';
+        category = (mrNorm && queryNorm && mrNorm.includes(queryNorm)) || (m.mrNumber && m.mrNumber.toLowerCase().includes(queryLower)) || (m.mrf && m.mrf.toLowerCase().includes(queryLower)) || (m.mrfNumber && m.mrfNumber.toLowerCase().includes(queryLower)) ? 'MR / MRF Record Match' : 'Work Order Match';
         score = 700;
         highlight = category.includes('MR') ? 'mrNumber' : 'workOrder';
+      }
+      // Level 4.2: Field Installation & Mounting Location Match (مكان التثبيت والتركيب)
+      else if (
+        (m.installationLocation && m.installationLocation.toLowerCase().includes(queryLower)) ||
+        (m.tagLocation && m.tagLocation.toLowerCase().includes(queryLower)) ||
+        (m.installedEquipment && m.installedEquipment.toLowerCase().includes(queryLower))
+      ) {
+        matched = true;
+        rank = 4.2;
+        category = 'Installation & Mounting Location Match (مكان التثبيت)';
+        score = 680;
+        highlight = 'installationLocation';
       }
       // Level 4.5: Associated Equipment Tag match
       else if (

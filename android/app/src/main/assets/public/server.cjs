@@ -107,12 +107,11 @@ async function startServer() {
       preferred = "gemini-3.1-flash-lite";
     }
     const candidateModels = [
-      preferred,
       "gemini-3.1-flash-lite",
+      preferred,
       "gemini-flash-latest",
-      "gemini-3.8-flash",
-      "gemini-3.1-pro-preview"
-    ].filter((m) => Boolean(m) && m !== "gemini-2.5-flash" && m !== "gemini-2.5-pro");
+      "gemini-3.8-flash"
+    ].filter((m) => Boolean(m) && m !== "gemini-2.5-flash" && m !== "gemini-2.5-pro" && m !== "gemini-3.1-pro-preview" && m !== "gemini-3.1-pro");
     const uniqueModels = Array.from(new Set(candidateModels));
     const ai = getAi();
     let lastError = null;

@@ -18,7 +18,8 @@ import {
   TrendingUp, 
   FileSpreadsheet,
   CheckCircle2,
-  Cpu
+  Cpu,
+  Sparkles
 } from 'lucide-react';
 import { Material, Equipment, User, EngineeringDecision, BlacklistItem, isTemporaryPartNumber } from '../types';
 import { dbService } from '../services/dbService';
@@ -29,9 +30,10 @@ interface ReportsViewProps {
   equipment?: Equipment[];
   currentUser: User;
   onNavigateToTab?: (tabId: string, query?: string) => void;
+  onOpenPresentation?: () => void;
 }
 
-export default function ReportsView({ materials = [], equipment = [], currentUser, onNavigateToTab }: ReportsViewProps) {
+export default function ReportsView({ materials = [], equipment = [], currentUser, onNavigateToTab, onOpenPresentation }: ReportsViewProps) {
   const safeMaterials = Array.isArray(materials) ? materials : (dbService.getMaterials() || []);
   const safeEquipment = Array.isArray(equipment) ? equipment : (dbService.getEquipment() || []);
   const [decisions] = useState<EngineeringDecision[]>(() => dbService.getEngineeringDecisions() || []);
@@ -206,7 +208,17 @@ export default function ReportsView({ materials = [], equipment = [], currentUse
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          {onOpenPresentation && (
+            <button
+              onClick={onOpenPresentation}
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white text-xs font-semibold rounded-xl shadow-md transition-all cursor-pointer"
+            >
+              <Sparkles className="h-4 w-4" />
+              <span>عرض تقديمي لخواص المنظومة (PowerPoint)</span>
+            </button>
+          )}
+
           <button
             onClick={handleExportExcel}
             className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors cursor-pointer"

@@ -371,7 +371,7 @@ export async function testFirestorePing(): Promise<{
         responseBody: {
           mode: 'direct_client_sdk',
           projectId: firebaseConfig.projectId,
-          databaseId: firebaseConfig.firestoreDatabaseId || '(default)',
+          databaseId: (firebaseConfig as any).firestoreDatabaseId || '(default)',
           authDomain: firebaseConfig.authDomain
         },
         durationMs,
@@ -382,13 +382,13 @@ export async function testFirestorePing(): Promise<{
         success: true,
         durationMs,
         projectId: firebaseConfig.projectId,
-        databaseId: firebaseConfig.firestoreDatabaseId || '(default)',
+        databaseId: (firebaseConfig as any).firestoreDatabaseId || '(default)',
         status: 'configured',
         isClientSdkConnected: true,
         details: {
           mode: 'direct_client_sdk',
           projectId: firebaseConfig.projectId,
-          databaseId: firebaseConfig.firestoreDatabaseId,
+          databaseId: (firebaseConfig as any).firestoreDatabaseId,
           authDomain: firebaseConfig.authDomain
         }
       };
@@ -615,7 +615,7 @@ export async function apiScanNameplate(imageBase64: string, existingMaterials: M
       const base64Clean = imageBase64.replace(/^data:image\/[a-z]+;base64,/, '');
 
       const result = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: 'gemini-3.1-flash-lite',
         contents: {
           parts: [
             { inlineData: { mimeType: 'image/jpeg', data: base64Clean } },
@@ -637,8 +637,8 @@ export async function apiScanNameplate(imageBase64: string, existingMaterials: M
     }
   }
 
-  // Offline Smart Recognition Fallback: Search existing materials for potential visual tag matches
-  return generateOfflineScanResult(existingMaterials);
+  // Never return fake random materials from the database!
+  throw new Error("تعذر قراءة بيانات لوحة المادة بالذكاء الاصطناعي حالياً نظراً لعدم توفر الاتصال أو ضغط الخدمة. يرجى إدخال رقم القطعة أو البحث عنه يدوياً.");
 }
 
 /**
@@ -1151,33 +1151,6 @@ function generateOfflineSubstitutes(
   return scored
     .sort((a, b) => b.matchScore - a.matchScore)
     .slice(0, 4);
-}
-
-/**
- * Offline scan heuristic generator
- */
-function generateOfflineScanResult(materials: Material[]) {
-  const randomSample = materials.length > 0 ? materials[Math.floor(Math.random() * materials.length)] : null;
-
-  return {
-    manufacturer: { value: randomSample?.manufacturer || "Industrial Equipment", confidence: 90 },
-    brand: { value: randomSample?.manufacturer || null, confidence: 85 },
-    model: { value: randomSample?.model || "MODEL-SERIES", confidence: 88 },
-    partNumber: { value: randomSample?.partNumber || "PN-" + Math.floor(100000 + Math.random() * 900000), confidence: 92 },
-    serialNumber: { value: randomSample?.serialNumber || "SN" + Math.floor(10000000 + Math.random() * 90000000), confidence: 85 },
-    voltage: { value: "24 VDC", confidence: 95 },
-    current: { value: "4-20 mA", confidence: 90 },
-    power: { value: "1.5 W", confidence: 80 },
-    output: { value: "HART / 4-20mA", confidence: 85 },
-    input: { value: "0-10 Bar", confidence: 80 },
-    frequency: { value: "50/60 Hz", confidence: 75 },
-    revision: { value: "Rev 2.1", confidence: 70 },
-    manufactureDate: { value: "2024", confidence: 85 },
-    countryOfOrigin: { value: "Germany", confidence: 80 },
-    certificationMarks: { value: "CE, ATEX Ex ia", confidence: 90 },
-    barcode: { value: null, confidence: 0 },
-    qrCode: { value: null, confidence: 0 }
-  };
 }
 
 /**

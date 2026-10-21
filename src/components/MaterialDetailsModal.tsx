@@ -47,7 +47,10 @@ import {
   AlertCircle,
   Plus,
   Link as LinkIcon,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Edit3,
+  Save,
+  Copy
 } from 'lucide-react';
 import { Material, Equipment, EngineeringDecision, BlacklistItem, User, UserRole, MaterialPhotoLibrary, MaterialHistoryEvent } from '../types';
 import { dbService } from '../services/dbService';
@@ -132,6 +135,57 @@ export default function MaterialDetailsModal({
       setCurrentMaterial(material);
     }
   }, [material, isOpen]);
+
+  // Engineering & Installation Location Fields (Tag, Field Mounting Loc, WO, MRF)
+  const [isEditingEngFields, setIsEditingEngFields] = useState(false);
+  const [editTagNumber, setEditTagNumber] = useState('');
+  const [editInstallationLoc, setEditInstallationLoc] = useState('');
+  const [editWorkOrder, setEditWorkOrder] = useState('');
+  const [editMrfReference, setEditMrfReference] = useState('');
+  const [isSavingEng, setIsSavingEng] = useState(false);
+
+  useEffect(() => {
+    if (currentMaterial) {
+      setEditTagNumber(currentMaterial.tagNumber || '');
+      setEditInstallationLoc(currentMaterial.installationLocation || currentMaterial.tagLocation || '');
+      setEditWorkOrder(currentMaterial.workOrder || currentMaterial.woNumber || '');
+      setEditMrfReference(currentMaterial.mrfReference || currentMaterial.mrfNumber || currentMaterial.mrf || currentMaterial.mrReference || '');
+    }
+  }, [currentMaterial]);
+
+  const handleSaveEngFields = () => {
+    if (!currentMaterial || currentUser.role === UserRole.VIEWER) return;
+    setIsSavingEng(true);
+    try {
+      const updatedMaterial: Material = {
+        ...currentMaterial,
+        tagNumber: editTagNumber.trim() || undefined,
+        installationLocation: editInstallationLoc.trim() || undefined,
+        tagLocation: editInstallationLoc.trim() || undefined,
+        workOrder: editWorkOrder.trim() || undefined,
+        woNumber: editWorkOrder.trim() || undefined,
+        mrfReference: editMrfReference.trim() || undefined,
+        mrfNumber: editMrfReference.trim() || undefined,
+        mrf: editMrfReference.trim() || undefined,
+        mrReference: editMrfReference.trim() || undefined,
+        updatedAt: new Date().toISOString()
+      };
+      const res = dbService.updateMaterial(updatedMaterial, currentUser);
+      if (res.success) {
+        setCurrentMaterial(updatedMaterial);
+        onEditMaterial?.(updatedMaterial);
+        setIsEditingEngFields(false);
+        setSuccessMessage('تم حفظ وتحديث بيانات التاغ الهندسي وموقع التركيب الميداني وأرقام WO و MRF بنجاح.');
+        setTimeout(() => setSuccessMessage(null), 3000);
+      } else {
+        setErrorMessage(res.error || 'فشل تحديث البيانات');
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'حدث خطأ أثناء حفظ التعديلات');
+    } finally {
+      setIsSavingEng(false);
+    }
+  };
 
   // Stop camera tracks cleanly on unmount or tab change
   const stopCamera = () => {
@@ -873,6 +927,208 @@ export default function MaterialDetailsModal({
                 </div>
               </div>
 
+              {/* Engineering Tag & Field Installation Location Card (WO & MRF) */}
+              <div className="md:col-span-2 p-4 rounded-xl border border-purple-200 dark:border-purple-800/60 bg-gradient-to-r from-purple-50/50 via-white to-indigo-50/30 dark:from-purple-950/20 dark:via-industrial-850 dark:to-indigo-950/20 space-y-3 shadow-2xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-purple-100 dark:border-purple-900/50">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300">
+                      <Tag className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-industrial-900 dark:text-white text-xs flex items-center gap-2">
+                        <span>التاغ الهندسي وموقع التثبيت الميداني وأوامر العمل</span>
+                        <span className="text-[10px] font-mono text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 px-2 py-0.5 rounded border border-purple-200 dark:border-purple-800">
+                          Engineering & Field Location
+                        </span>
+                      </h4>
+                      <p className="text-[11px] text-industrial-500 dark:text-industrial-400">
+                        توثيق مكان التثبيت الفعلي للمادة (مثل مكان تثبيت السلينويد) وأرقام WO و MRF
+                      </p>
+                    </div>
+                  </div>
+
+                  {currentUser.role !== UserRole.VIEWER && (
+                    <div>
+                      {!isEditingEngFields ? (
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingEngFields(true)}
+                          className="px-3 py-1 text-xs font-bold rounded-lg bg-white dark:bg-industrial-800 hover:bg-purple-50 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700 flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+                        >
+                          <Edit3 className="h-3.5 w-3.5" />
+                          <span>تعديل سريع</span>
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsEditingEngFields(false);
+                              if (currentMaterial) {
+                                setEditTagNumber(currentMaterial.tagNumber || '');
+                                setEditInstallationLoc(currentMaterial.installationLocation || currentMaterial.tagLocation || '');
+                                setEditWorkOrder(currentMaterial.workOrder || currentMaterial.woNumber || '');
+                                setEditMrfReference(currentMaterial.mrfReference || currentMaterial.mrfNumber || currentMaterial.mrf || currentMaterial.mrReference || '');
+                              }
+                            }}
+                            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-industrial-100 hover:bg-industrial-200 text-industrial-700 dark:bg-industrial-800 dark:text-industrial-300 cursor-pointer"
+                          >
+                            إلغاء
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSaveEngFields}
+                            disabled={isSavingEng}
+                            className="px-3 py-1 text-xs font-bold rounded-lg bg-purple-600 hover:bg-purple-500 text-white flex items-center gap-1 cursor-pointer shadow-xs disabled:opacity-50"
+                          >
+                            <Save className="h-3.5 w-3.5" />
+                            <span>{isSavingEng ? 'جارٍ الحفظ...' : 'حفظ التعديلات'}</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {!isEditingEngFields ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+                    {/* Tag Number */}
+                    <div className="p-2.5 rounded-lg bg-white/80 dark:bg-industrial-900/80 border border-purple-100 dark:border-purple-900/40">
+                      <span className="text-industrial-400 text-[10px] block font-medium">Tag Number (رقم بطاقة المعدة / التاغ):</span>
+                      <div className="flex items-center justify-between gap-1 mt-0.5">
+                        <span className="font-mono font-bold text-xs text-purple-700 dark:text-purple-300 truncate">
+                          {currentMaterial.tagNumber || '— غير محدد —'}
+                        </span>
+                        {currentMaterial.tagNumber && (
+                          <button
+                            type="button"
+                            onClick={() => navigator.clipboard.writeText(currentMaterial.tagNumber || '')}
+                            title="نسخ التاغ"
+                            className="text-industrial-400 hover:text-purple-600 p-0.5 cursor-pointer"
+                          >
+                            <Copy className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Field Installation Location */}
+                    <div className="p-2.5 rounded-lg bg-white/80 dark:bg-industrial-900/80 border border-purple-100 dark:border-purple-900/40">
+                      <span className="text-industrial-400 text-[10px] block font-medium">موقع التثبيت والتركيب الفعلي:</span>
+                      <div className="flex items-center justify-between gap-1 mt-0.5">
+                        <span className="font-semibold text-xs text-industrial-900 dark:text-white truncate" title={currentMaterial.installationLocation || currentMaterial.tagLocation}>
+                          {currentMaterial.installationLocation || currentMaterial.tagLocation || '— غير محدد (مثال: مكان تثبيت السلينويد) —'}
+                        </span>
+                        {(currentMaterial.installationLocation || currentMaterial.tagLocation) && (
+                          <button
+                            type="button"
+                            onClick={() => navigator.clipboard.writeText(currentMaterial.installationLocation || currentMaterial.tagLocation || '')}
+                            title="نسخ موقع التثبيت"
+                            className="text-industrial-400 hover:text-purple-600 p-0.5 cursor-pointer"
+                          >
+                            <Copy className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Work Order */}
+                    <div className="p-2.5 rounded-lg bg-white/80 dark:bg-industrial-900/80 border border-purple-100 dark:border-purple-900/40">
+                      <span className="text-industrial-400 text-[10px] block font-medium">Work Order (رقم أمر العمل WO #):</span>
+                      <div className="flex items-center justify-between gap-1 mt-0.5">
+                        <span className="font-mono font-bold text-xs text-amber-700 dark:text-amber-400 truncate">
+                          {currentMaterial.workOrder || currentMaterial.woNumber || '— لا يوجد أمر عمل —'}
+                        </span>
+                        {(currentMaterial.workOrder || currentMaterial.woNumber) && (
+                          <button
+                            type="button"
+                            onClick={() => navigator.clipboard.writeText(currentMaterial.workOrder || currentMaterial.woNumber || '')}
+                            title="نسخ أمر العمل"
+                            className="text-industrial-400 hover:text-amber-600 p-0.5 cursor-pointer"
+                          >
+                            <Copy className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* MRF Reference */}
+                    <div className="p-2.5 rounded-lg bg-white/80 dark:bg-industrial-900/80 border border-purple-100 dark:border-purple-900/40">
+                      <span className="text-industrial-400 text-[10px] block font-medium">Material Requisition (رقم MRF #):</span>
+                      <div className="flex items-center justify-between gap-1 mt-0.5">
+                        <span className="font-mono font-bold text-xs text-blue-700 dark:text-blue-400 truncate">
+                          {currentMaterial.mrfReference || currentMaterial.mrfNumber || currentMaterial.mrf || currentMaterial.mrReference || '— لا يوجد رقم طلب —'}
+                        </span>
+                        {(currentMaterial.mrfReference || currentMaterial.mrfNumber || currentMaterial.mrf || currentMaterial.mrReference) && (
+                          <button
+                            type="button"
+                            onClick={() => navigator.clipboard.writeText(currentMaterial.mrfReference || currentMaterial.mrfNumber || currentMaterial.mrf || currentMaterial.mrReference || '')}
+                            title="نسخ رقم MRF"
+                            className="text-industrial-400 hover:text-blue-600 p-0.5 cursor-pointer"
+                          >
+                            <Copy className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+                    <div>
+                      <label className="text-industrial-600 dark:text-industrial-300 text-[10.5px] font-semibold block mb-1">
+                        Tag Number (التاغ الهندسي):
+                      </label>
+                      <input
+                        type="text"
+                        value={editTagNumber}
+                        onChange={(e) => setEditTagNumber(e.target.value)}
+                        placeholder="e.g. 2021-1-5553-XYS-237"
+                        className="w-full bg-white dark:bg-industrial-900 border border-purple-200 dark:border-purple-700 text-xs px-2.5 py-1.5 rounded-lg font-mono uppercase focus:outline-none focus:ring-1.5 focus:ring-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-industrial-600 dark:text-industrial-300 text-[10.5px] font-semibold block mb-1">
+                        مكان التثبيت والتركيب الميداني الفعلي:
+                      </label>
+                      <input
+                        type="text"
+                        value={editInstallationLoc}
+                        onChange={(e) => setEditInstallationLoc(e.target.value)}
+                        placeholder="e.g. Turbine Skid-A (مكان تثبيت السلينويد)"
+                        className="w-full bg-white dark:bg-industrial-900 border border-purple-200 dark:border-purple-700 text-xs px-2.5 py-1.5 rounded-lg focus:outline-none focus:ring-1.5 focus:ring-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-industrial-600 dark:text-industrial-300 text-[10.5px] font-semibold block mb-1">
+                        Work Order (رقم أمر العمل WO #):
+                      </label>
+                      <input
+                        type="text"
+                        value={editWorkOrder}
+                        onChange={(e) => setEditWorkOrder(e.target.value)}
+                        placeholder="e.g. WO-2024-8841"
+                        className="w-full bg-white dark:bg-industrial-900 border border-purple-200 dark:border-purple-700 text-xs px-2.5 py-1.5 rounded-lg font-mono uppercase focus:outline-none focus:ring-1.5 focus:ring-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-industrial-600 dark:text-industrial-300 text-[10.5px] font-semibold block mb-1">
+                        MRF Number (رقم طلب صرف المواد):
+                      </label>
+                      <input
+                        type="text"
+                        value={editMrfReference}
+                        onChange={(e) => setEditMrfReference(e.target.value)}
+                        placeholder="e.g. MRF-2024-001 أو 0226-14344"
+                        className="w-full bg-white dark:bg-industrial-900 border border-purple-200 dark:border-purple-700 text-xs px-2.5 py-1.5 rounded-lg font-mono uppercase focus:outline-none focus:ring-1.5 focus:ring-purple-500"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {currentMaterial.notes && (
                 <div className="md:col-span-2 p-4 rounded-xl border border-industrial-200 dark:border-industrial-700 bg-white dark:bg-industrial-850">
                   <h4 className="font-bold text-industrial-800 dark:text-industrial-200 mb-1">ملاحظات المستودع العامة:</h4>
@@ -1458,9 +1714,9 @@ export default function MaterialDetailsModal({
                 </div>
 
                 <div className="p-4 rounded-xl border border-industrial-200 dark:border-industrial-700 bg-industrial-50/50 dark:bg-industrial-850">
-                  <span className="text-industrial-400 text-[10px] block">رقم MRF:</span>
+                  <span className="text-industrial-400 text-[10px] block">رقم طلب صرف وتوريد المواد (MRF #):</span>
                   <span className="font-mono font-bold text-industrial-900 dark:text-white text-sm">
-                    {material.mrfNumber || material.mrf || 'N/A'}
+                    {currentMaterial.mrfReference || currentMaterial.mrfNumber || currentMaterial.mrf || currentMaterial.mrReference || material.mrfNumber || material.mrf || 'N/A'}
                   </span>
                 </div>
 
@@ -1500,19 +1756,19 @@ export default function MaterialDetailsModal({
                   <span>أوامر العمل المرتبطة (Work Orders):</span>
                 </h4>
                 <div className="flex flex-wrap gap-2">
-                  {material.workOrder && (
+                  {(currentMaterial.workOrder || currentMaterial.woNumber || material.workOrder || material.woNumber) && (
                     <span className="px-3 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 font-mono font-bold">
-                      {material.workOrder}
+                      {currentMaterial.workOrder || currentMaterial.woNumber || material.workOrder || material.woNumber}
                     </span>
                   )}
-                  {material.woNumbers && material.woNumbers.map(wo => (
-                    wo !== material.workOrder && (
+                  {currentMaterial.woNumbers && currentMaterial.woNumbers.map(wo => (
+                    wo !== (currentMaterial.workOrder || currentMaterial.woNumber) && (
                       <span key={wo} className="px-3 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 font-mono font-bold">
                         {wo}
                       </span>
                     )
                   ))}
-                  {!material.workOrder && (!material.woNumbers || material.woNumbers.length === 0) && (
+                  {!(currentMaterial.workOrder || currentMaterial.woNumber || material.workOrder || material.woNumber) && (!currentMaterial.woNumbers || currentMaterial.woNumbers.length === 0) && (
                     <span className="text-industrial-400 italic">لا توجد أوامر عمل مرتبطة حالياً</span>
                   )}
                 </div>
