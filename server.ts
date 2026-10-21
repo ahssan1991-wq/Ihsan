@@ -141,7 +141,6 @@ async function startServer() {
 
     for (let i = 0; i < uniqueModels.length; i++) {
       const model = uniqueModels[i];
-      // Allow 1 retry only for non-overload transient glitches; for 503/429/quota/404, immediately try next candidate model
       const maxRetries = 1;
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
@@ -163,6 +162,7 @@ async function startServer() {
           const status = err?.status || err?.code || err?.message || 'unknown';
           const msg = String(err?.message || '').toLowerCase();
           const isTransient = isTransientError(err);
+          const isSchemaOr400 = (status === 400 || String(status).includes('400') || msg.includes('schema') || msg.includes('invalid_argument') || msg.includes('bad request')) && options.config?.responseSchema;
           const isNotFound = status === 404 || String(status).includes('404') || msg.includes('404') || msg.includes('no longer available') || msg.includes('not_found');
           const isOverloadOrQuota = 
             status === 503 || 
@@ -173,11 +173,36 @@ async function startServer() {
             msg.includes('429') || 
             msg.includes('overloaded') ||
             msg.includes('resource_exhausted') ||
-            msg.includes('quota');
+            msg.includes('quota') ||
+            msg.includes('high demand');
 
-          // If it's a 404 deprecation, 503 capacity overload or 429 quota exhaustion, don't wait on the same model - immediately switch to next model in the pool
+          // If strict schema validation failed, retry immediately without responseSchema (JSON mode only)
+          if (isSchemaOr400) {
+            console.warn(`[Gemini Resilience] Schema rejection on ${model}. Retrying in lenient JSON mode without responseSchema...`);
+            try {
+              const fallbackConfig = { ...options.config };
+              delete fallbackConfig.responseSchema;
+              fallbackConfig.responseMimeType = "application/json";
+              const retryRes = await ai.models.generateContent({
+                model,
+                contents: options.contents,
+                config: fallbackConfig
+              });
+              return {
+                text: retryRes.text,
+                modelUsed: `${model} (lenient-json)`,
+                rawResponse: retryRes
+              };
+            } catch (fallbackErr) {
+              console.warn(`[Gemini Resilience] Lenient JSON retry also failed on ${model}:`, fallbackErr);
+            }
+          }
+
+          // If it's a 404 deprecation, 503 capacity overload or 429 quota exhaustion, switch to next model with brief jitter delay
           if ((isOverloadOrQuota || isNotFound) && i < uniqueModels.length - 1) {
-            console.log(`[Gemini Resilience] Model ${model} returned (${status}). Switching instantly to ${uniqueModels[i + 1]}...`);
+            const jitterMs = 400 + Math.random() * 600;
+            console.log(`[Gemini Resilience] Model ${model} returned (${status}). Switching to ${uniqueModels[i + 1]} in ${Math.round(jitterMs)}ms...`);
+            await new Promise(resolve => setTimeout(resolve, jitterMs));
             break;
           }
 
@@ -225,8 +250,8 @@ async function startServer() {
       const callPromise = callGeminiResiliently({
         contents: "Respond with single word: OK",
         config: {
-          thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
-          temperature: 0.1
+          temperature: 0.1,
+          maxOutputTokens: 10
         },
         preferredModel: "gemini-3.1-flash-lite"
       });
@@ -400,7 +425,7 @@ Required fields to analyze:
       const fieldSchema = {
         type: Type.OBJECT,
         properties: {
-          value: { type: Type.STRING },
+          value: { type: Type.STRING, nullable: true },
           confidence: { type: Type.INTEGER }
         },
         required: ["confidence"]
@@ -408,7 +433,7 @@ Required fields to analyze:
 
       const response = await callGeminiResiliently({
         contents: { parts: [imagePart, promptPart] },
-        preferredModel: "gemini-3.8-flash",
+        preferredModel: "gemini-3.1-flash-lite",
         config: {
           responseMimeType: "application/json",
           responseSchema: {
@@ -440,13 +465,7 @@ Required fields to analyze:
               description: fieldSchema,
               quantity: fieldSchema,
               unit: fieldSchema,
-            },
-            required: [
-              "manufacturer", "brand", "model", "partNumber", "serialNumber", 
-              "voltage", "current", "power", "output", "input", "frequency", 
-              "revision", "manufactureDate", "countryOfOrigin", "certificationMarks", 
-              "barcode", "qrCode"
-            ],
+            }
           }
         }
       });
@@ -456,8 +475,43 @@ Required fields to analyze:
         throw new Error("Empty response from Gemini model");
       }
 
-      const parsedData = JSON.parse(extractedText.trim());
-      res.json(parsedData);
+      // Clean markdown codeblocks if returned
+      const cleanJson = extractedText
+        .replace(/^```json\s*/i, '')
+        .replace(/^```\s*/i, '')
+        .replace(/\s*```$/i, '')
+        .trim();
+
+      const parsedData = JSON.parse(cleanJson);
+
+      // Normalize all expected fields to always return { value, confidence }
+      const expectedKeys = [
+        "manufacturer", "brand", "model", "partNumber", "serialNumber", 
+        "voltage", "current", "power", "output", "input", "frequency", 
+        "revision", "manufactureDate", "countryOfOrigin", "certificationMarks", 
+        "barcode", "qrCode", "tagNumber", "tagLocation", "workOrder", 
+        "mrReference", "contractor", "deliveryTerms", "description", 
+        "quantity", "unit"
+      ];
+
+      const normalized: Record<string, { value: string | null; confidence: number }> = {};
+      for (const k of expectedKeys) {
+        if (parsedData[k] && typeof parsedData[k] === 'object') {
+          normalized[k] = {
+            value: parsedData[k].value !== undefined && parsedData[k].value !== null ? String(parsedData[k].value).trim() : null,
+            confidence: typeof parsedData[k].confidence === 'number' ? parsedData[k].confidence : 80
+          };
+        } else if (parsedData[k] !== undefined && parsedData[k] !== null) {
+          normalized[k] = {
+            value: String(parsedData[k]).trim(),
+            confidence: 85
+          };
+        } else {
+          normalized[k] = { value: null, confidence: 0 };
+        }
+      }
+
+      res.json(normalized);
     } catch (error: any) {
       console.error("Scan nameplate error:", error);
       res.status(500).json({ error: error.message || "Internal server error" });

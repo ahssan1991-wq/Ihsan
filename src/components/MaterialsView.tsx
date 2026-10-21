@@ -46,7 +46,8 @@ import {
   MessageSquare,
   Send,
   Camera,
-  Tag
+  Tag,
+  ChevronDown
 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import NameplateScanner from './NameplateScanner';
@@ -157,6 +158,8 @@ export default function MaterialsView({
   const [printIncludeLocation, setPrintIncludeLocation] = useState(true);
   const [printIncludeSpecs, setPrintIncludeSpecs] = useState(true);
   const [printLabelSize, setPrintLabelSize] = useState<'standard' | 'small' | 'large'>('standard');
+  const [isMobileExportOpen, setIsMobileExportOpen] = useState(false);
+  const [isMobileToolsOpen, setIsMobileToolsOpen] = useState(false);
   
   // Serial Numbers Management States
   const [isAddingSerial, setIsAddingSerial] = useState(false);
@@ -1764,11 +1767,12 @@ Your guidelines:
       <div className="bg-white p-5 rounded-2xl border border-industrial-200 shadow-sm space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-xl font-bold tracking-tight text-industrial-800 heading-display">Material Ledger Ledger</h2>
+            <h2 className="text-xl font-bold tracking-tight text-industrial-800 heading-display">Material Ledger</h2>
             <p className="text-xs text-industrial-500 mt-1">Authorized engineering material registry directory.</p>
           </div>
           
-          <div className="flex gap-2.5 flex-wrap">
+          {/* Desktop Toolbar (visible on md screens and up) */}
+          <div className="hidden md:flex gap-2.5 flex-wrap">
             <button
               onClick={handleExportCSV}
               className="inline-flex items-center gap-1.5 bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200 font-semibold text-xs px-3.5 py-2.5 rounded-xl transition-colors cursor-pointer shadow-2xs"
@@ -1847,6 +1851,135 @@ Your guidelines:
                 <span>Add Material SKU</span>
               </button>
             )}
+          </div>
+
+          {/* Mobile Sleek Action Bar (clean 2-row layout prevents pushing table off screen) */}
+          <div className="flex md:hidden flex-col gap-2 w-full">
+            <div className="flex items-center gap-2 w-full">
+              {isWritable && (
+                <button
+                  type="button"
+                  onClick={() => onNavigateToTab('add-material')}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 bg-brand-600 hover:bg-brand-500 active:scale-95 text-white font-semibold text-xs py-2.5 px-3 rounded-xl transition-all shadow-sm cursor-pointer"
+                >
+                  <Plus className="h-4 w-4 shrink-0" />
+                  <span>Add SKU / إضافة مادة</span>
+                </button>
+              )}
+              <NameplateScanner
+                materialsList={materials}
+                renderTrigger={(open) => (
+                  <button
+                    type="button"
+                    onClick={open}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-semibold text-xs py-2.5 px-3 rounded-xl transition-all shadow-sm cursor-pointer"
+                    id="btn-scan-ledger-top-mobile"
+                  >
+                    <Camera className="h-4 w-4 shrink-0" />
+                    <span>مسح باركود / Scan</span>
+                  </button>
+                )}
+                onEditMaterial={(mat) => {
+                  setSelectedMaterial(mat);
+                  setIsEditingCoreDetails(true);
+                }}
+                onRegisterNewEntry={(data) => {
+                  onNavigateToTab('add-material', '', data);
+                }}
+              />
+            </div>
+
+            <div className="flex items-center gap-2 w-full">
+              {/* Export Dropdown */}
+              <div className="relative flex-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileExportOpen(!isMobileExportOpen);
+                    setIsMobileToolsOpen(false);
+                  }}
+                  className="w-full inline-flex items-center justify-between gap-1.5 bg-industrial-100 hover:bg-industrial-200 text-industrial-800 font-medium text-xs py-2 px-3 rounded-xl border border-industrial-200 cursor-pointer"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <FileSpreadsheet className="h-3.5 w-3.5 text-brand-600" />
+                    <span>تصدير / Export</span>
+                  </span>
+                  <ChevronDown className={`h-3 w-3 transition-transform ${isMobileExportOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {isMobileExportOpen && (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-industrial-200 rounded-xl shadow-xl z-30 p-1 space-y-1">
+                    <button
+                      onClick={() => { handleExportCSV(); setIsMobileExportOpen(false); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-industrial-700 hover:bg-industrial-50 rounded-lg text-left"
+                    >
+                      <FileSpreadsheet className="h-3.5 w-3.5 text-brand-600" />
+                      <span>تصدير CSV / CSV Export</span>
+                    </button>
+                    <button
+                      onClick={() => { handleExportXLSX(); setIsMobileExportOpen(false); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-industrial-700 hover:bg-industrial-50 rounded-lg text-left"
+                    >
+                      <FileSpreadsheet className="h-3.5 w-3.5 text-brand-600" />
+                      <span>تصدير Excel / Excel Export</span>
+                    </button>
+                    <button
+                      onClick={() => { handleExportPDF(); setIsMobileExportOpen(false); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-industrial-700 hover:bg-industrial-50 rounded-lg text-left"
+                    >
+                      <Printer className="h-3.5 w-3.5 text-slate-800" />
+                      <span>تصدير PDF / PDF Export</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Tools Dropdown */}
+              <div className="relative flex-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileToolsOpen(!isMobileToolsOpen);
+                    setIsMobileExportOpen(false);
+                  }}
+                  className="w-full inline-flex items-center justify-between gap-1.5 bg-industrial-100 hover:bg-industrial-200 text-industrial-800 font-medium text-xs py-2 px-3 rounded-xl border border-industrial-200 cursor-pointer"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Wrench className="h-3.5 w-3.5 text-industrial-600" />
+                    <span>أدوات / Tools</span>
+                  </span>
+                  <ChevronDown className={`h-3 w-3 transition-transform ${isMobileToolsOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {isMobileToolsOpen && (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-industrial-200 rounded-xl shadow-xl z-30 p-1 space-y-1">
+                    {isWritable && (
+                      <button
+                        onClick={() => { setIsShowingImportModal(true); setIsMobileToolsOpen(false); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-50 rounded-lg text-left"
+                      >
+                        <Upload className="h-3.5 w-3.5 text-emerald-600" />
+                        <span>استيراد اكسل / Import</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => { setIsShowingBlacklistManager(true); setIsMobileToolsOpen(false); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-50 rounded-lg text-left"
+                    >
+                      <ShieldAlert className="h-3.5 w-3.5 text-red-600" />
+                      <span>القائمة السوداء / Blacklist</span>
+                    </button>
+                    {isWritable && (
+                      <button
+                        onClick={() => { setIsShowingConfirmClearAll(true); setIsMobileToolsOpen(false); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg text-left"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                        <span>مسح الكل / Clear All</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 

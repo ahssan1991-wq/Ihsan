@@ -591,6 +591,7 @@ export async function testDbHealth(): Promise<{
  */
 export async function apiScanNameplate(imageBase64: string, existingMaterials: Material[] = []): Promise<any> {
   const baseUrl = getBaseApiUrl();
+  let backendErrorMsg: string | null = null;
 
   try {
     const response = await fetch(`${baseUrl}/api/gemini/scan-nameplate`, {
@@ -601,8 +602,13 @@ export async function apiScanNameplate(imageBase64: string, existingMaterials: M
 
     if (response.ok) {
       return await response.json();
+    } else {
+      const errData = await response.json().catch(() => null);
+      backendErrorMsg = errData?.error || `HTTP ${response.status}`;
+      console.warn("[API Client] Backend nameplate scan returned error:", backendErrorMsg);
     }
-  } catch (err) {
+  } catch (err: any) {
+    backendErrorMsg = err?.message || String(err);
     console.warn("[API Client] Backend nameplate scan failed or offline, switching to fallback:", err);
   }
 
@@ -621,7 +627,7 @@ export async function apiScanNameplate(imageBase64: string, existingMaterials: M
             { inlineData: { mimeType: 'image/jpeg', data: base64Clean } },
             {
               text: `Extract technical specifications from this industrial nameplate and output strictly formatted JSON with keys:
-              manufacturer, brand, model, partNumber, serialNumber, voltage, current, power, output, input, frequency, revision, manufactureDate, countryOfOrigin, certificationMarks, barcode, qrCode.
+              manufacturer, brand, model, partNumber, serialNumber, voltage, current, power, output, input, frequency, revision, manufactureDate, countryOfOrigin, certificationMarks, barcode, qrCode, tagNumber, workOrder, mrReference, description, quantity, unit.
               Each key should be an object: { "value": string | null, "confidence": number }`
             }
           ]
@@ -630,15 +636,16 @@ export async function apiScanNameplate(imageBase64: string, existingMaterials: M
       });
 
       if (result.text) {
-        return JSON.parse(result.text.trim());
+        const clean = result.text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+        return JSON.parse(clean);
       }
     } catch (clientErr) {
       console.warn("[API Client] Direct client Gemini API call failed:", clientErr);
     }
   }
 
-  // Never return fake random materials from the database!
-  throw new Error("تعذر قراءة بيانات لوحة المادة بالذكاء الاصطناعي حالياً نظراً لعدم توفر الاتصال أو ضغط الخدمة. يرجى إدخال رقم القطعة أو البحث عنه يدوياً.");
+  const detail = backendErrorMsg ? ` (${backendErrorMsg})` : '';
+  throw new Error(`تعذر قراءة بيانات لوحة المادة بالذكاء الاصطناعي حالياً نظراً لعدم توفر الاتصال أو ضغط الخدمة${detail}. يرجى المحاولة مرة أخرى أو إدخال رقم القطعة يدوياً.`);
 }
 
 /**

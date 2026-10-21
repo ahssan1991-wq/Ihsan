@@ -45,6 +45,7 @@ export default function NetworkStatusIndicator({
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ text: string; isError: boolean } | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const safetyTimerRef = useRef<any>(null);
 
   // Check health and ping
   const pingConnection = useCallback(async () => {
@@ -94,9 +95,19 @@ export default function NetworkStatusIndicator({
 
     const handleSyncStarted = () => {
       setIsSyncing(true);
+      if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
+      // Failsafe auto-reset after 5 seconds to ensure badge is never stuck in spinning state
+      safetyTimerRef.current = setTimeout(() => {
+        setIsSyncing(false);
+        refreshSummary();
+      }, 5000);
     };
 
     const handleSyncFinished = () => {
+      if (safetyTimerRef.current) {
+        clearTimeout(safetyTimerRef.current);
+        safetyTimerRef.current = null;
+      }
       setIsSyncing(false);
       refreshSummary();
       pingConnection();
@@ -116,6 +127,7 @@ export default function NetworkStatusIndicator({
     }, 40000);
 
     return () => {
+      if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('emis:sync-status-changed', handleSyncChange);
@@ -259,7 +271,7 @@ export default function NetworkStatusIndicator({
 
         {/* Status Icon */}
         <IconComponent className={`h-3 w-3 shrink-0 ${
-          status === 'syncing' ? 'animate-spin' : ''
+          isSyncing ? 'animate-spin' : ''
         }`} />
 
         {/* Status Text Label */}
@@ -288,7 +300,7 @@ export default function NetworkStatusIndicator({
             <div className="flex items-center justify-between pb-3 border-b border-industrial-800">
               <div className="flex items-center gap-2">
                 <div className={`p-1.5 rounded-lg border ${config.bgClass} ${config.textClass} ${config.borderClass}`}>
-                  <IconComponent className={`h-4 w-4 ${status === 'syncing' ? 'animate-spin' : ''}`} />
+                  <IconComponent className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
                 </div>
                 <div>
                   <h4 className="font-bold text-white text-xs leading-none">Real-Time Connectivity</h4>

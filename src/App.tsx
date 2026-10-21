@@ -1137,7 +1137,7 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] lg:bottom-6 right-5 z-40 flex flex-col items-end gap-2.5">
+      <div className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom,0px))] lg:bottom-6 right-4 sm:right-6 z-30 flex flex-col items-end gap-2.5">
         <AnimatePresence>
           {isFabOpen && (
             <motion.div
