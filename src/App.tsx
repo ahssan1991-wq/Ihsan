@@ -58,6 +58,7 @@ import { LiveBarcodeScannerModal } from './components/LiveBarcodeScannerModal';
 import { OrganizationSettingsModal } from './components/OrganizationSettingsModal';
 import DeviceInstallModal from './components/DeviceInstallModal';
 import SystemPresentationModal from './components/SystemPresentationModal';
+import WarehouseFilesManagerView from './components/WarehouseFilesManagerView';
 import { softDeleteRecord } from './services/port13Service';
 
 import { 
@@ -83,7 +84,10 @@ import {
   ArrowRight,
   Command,
   Building2,
-  Download
+  Download,
+  Wrench,
+  Bell,
+  ChevronDown
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useLanguage } from './contexts/LanguageContext';
@@ -134,7 +138,8 @@ export default function App() {
   const [isFabOpen, setIsFabOpen] = useState(false);
 
   // Language and RTL
-  const { language, t, isRTL } = useLanguage();
+  const { language, t, isRTL, toggleLanguage } = useLanguage();
+  const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
 
   // Navigation History & Ergonomics
   const [navHistory, setNavHistory] = useState<string[]>(['dashboard']);
@@ -213,19 +218,26 @@ export default function App() {
       initDb();
     };
 
-    const handleMaterialUpdated = () => {
-      setMaterials(dbService.getMaterials());
+    const handleMaterialsChanged = () => {
+      setMaterials(dbService.getMaterials(null, true));
       setActivities(dbService.getActivities());
+      setEquipment(dbService.getEquipment());
     };
 
     window.addEventListener('online', handleSyncRestore);
     window.addEventListener('emis:background-sync-restored', handleSyncRestore);
-    window.addEventListener('emis:material-updated', handleMaterialUpdated);
+    window.addEventListener('emis:material-updated', handleMaterialsChanged);
+    window.addEventListener('emis:material-added', handleMaterialsChanged);
+    window.addEventListener('emis:material-deleted', handleMaterialsChanged);
+    window.addEventListener('emis:materials-changed', handleMaterialsChanged);
 
     return () => {
       window.removeEventListener('online', handleSyncRestore);
       window.removeEventListener('emis:background-sync-restored', handleSyncRestore);
-      window.removeEventListener('emis:material-updated', handleMaterialUpdated);
+      window.removeEventListener('emis:material-updated', handleMaterialsChanged);
+      window.removeEventListener('emis:material-added', handleMaterialsChanged);
+      window.removeEventListener('emis:material-deleted', handleMaterialsChanged);
+      window.removeEventListener('emis:materials-changed', handleMaterialsChanged);
     };
   }, []);
 
@@ -249,7 +261,7 @@ export default function App() {
       window.removeEventListener('emis:material-added', updateActionCount);
       window.removeEventListener('emis:sync-status-changed', updateActionCount);
     };
-  }, [currentUser]);
+  }, [currentUser?.id]);
 
   // Listen for deep link part number or passport parameter from scanned QR code tags
   useEffect(() => {
@@ -271,7 +283,7 @@ export default function App() {
         triggerToast('success', `Deep linked to asset file: ${partParam}`);
       }
     }
-  }, [currentUser, materials]);
+  }, [currentUser?.id, materials.length]);
 
   const triggerToast = (type: 'success' | 'error', message: string) => {
     setToast({ type, message });
@@ -366,6 +378,7 @@ export default function App() {
             currentUser={currentUser}
             onNavigateToTab={handleNavigateWithSearch}
             onOpenWhatsNew={() => setIsWhatsNewOpen(true)}
+            onInspectMaterial={handleInspectMaterialFromSearch}
           />
         );
       case 'action-center':
@@ -463,6 +476,14 @@ export default function App() {
           />
         );
       }
+      case 'warehouse-files':
+        return (
+          <WarehouseFilesManagerView
+            currentUser={currentUser}
+            onInspectMaterial={(m) => setInspectingMaterial(m)}
+            onNavigateToTab={handleNavigateWithSearch}
+          />
+        );
       case 'materials':
         return (
           <MaterialsView
@@ -561,6 +582,8 @@ export default function App() {
             onAddMaterialSuccess={handleAddMaterialSuccess}
             initialPrefillData={prefilledScanData}
             onClearPrefill={() => setPrefilledScanData(null)}
+            onInspectMaterial={(mat) => handleInspectMaterialFromSearch(mat)}
+            onNavigateToMaterial={(partNo) => handleNavigateWithSearch('materials', partNo)}
           />
         );
       case 'external-stock':
@@ -577,9 +600,12 @@ export default function App() {
           <ExcelImportCenterView
             currentUser={currentUser}
             onImportSuccess={() => {
+              setMaterials(dbService.getMaterials(null, true));
+              setActivities(dbService.getActivities());
+              setEquipment(dbService.getEquipment());
               setToast({
                 type: 'success',
-                message: 'Excel import batch processed and indexed successfully.'
+                message: 'تم استيراد وفهرسة دفعة المواد بنجاح في قاعدة البيانات المركزية / Excel import batch processed and indexed successfully.'
               });
             }}
             onNavigateToExternalStores={() => setActiveTab('external-stock')}
@@ -751,7 +777,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-industrial-50 flex flex-col lg:flex-row relative font-sans" id="app-wrapper">
+    <div className="min-h-screen bg-[#070b14] text-slate-100 flex flex-col lg:flex-row relative font-sans selection:bg-blue-600/30 selection:text-white" id="app-wrapper">
       
       {/* Sidebar/Header Navigation Menu */}
       <Navigation
@@ -766,19 +792,19 @@ export default function App() {
       />
 
       {/* Main Operating Panel with Safe Scrolling Area */}
-      <main className="flex-1 p-4 sm:p-6 lg:p-8 max-h-screen overflow-y-auto relative pb-32 lg:pb-8">
+      <main className="flex-1 p-4 sm:p-6 lg:p-8 max-h-screen overflow-y-auto relative pb-32 lg:pb-8 bg-[#070b14]">
         {/* Desktop Top Header Bar with Connectivity, Quick Jump, Breadcrumbs & History */}
-        <header className="hidden lg:flex flex-col gap-2.5 pb-3.5 mb-5 border-b border-industrial-200 dark:border-industrial-800 max-w-7xl mx-auto select-none">
+        <header className="hidden lg:flex flex-col gap-3 pb-3 mb-6 border-b border-[#1b263b] max-w-7xl mx-auto select-none">
           <div className="flex items-center justify-between">
             {/* Left: History navigation + Breadcrumbs */}
             <div className="flex items-center gap-2 text-xs">
               {/* Back / Forward History Controls */}
-              <div className="flex items-center gap-0.5 bg-white dark:bg-industrial-850 p-1 rounded-xl border border-industrial-200 dark:border-industrial-750 shadow-2xs">
+              <div className="flex items-center gap-0.5 bg-[#11192a] p-1 rounded-lg border border-[#1e2a42]">
                 <button
                   type="button"
                   onClick={handleGoBack}
                   disabled={navHistoryIndex <= 0}
-                  className="p-1 rounded-lg text-industrial-500 hover:text-industrial-900 dark:text-industrial-400 dark:hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
                   title={language === 'ar' ? 'السابق (رجوع)' : 'Go Back'}
                 >
                   <ArrowLeft className={`h-3.5 w-3.5 ${isRTL ? 'rotate-180' : ''}`} />
@@ -787,7 +813,7 @@ export default function App() {
                   type="button"
                   onClick={handleGoForward}
                   disabled={navHistoryIndex >= navHistory.length - 1}
-                  className="p-1 rounded-lg text-industrial-500 hover:text-industrial-900 dark:text-industrial-400 dark:hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
                   title={language === 'ar' ? 'التالي (تقدم)' : 'Go Forward'}
                 >
                   <ArrowRight className={`h-3.5 w-3.5 ${isRTL ? 'rotate-180' : ''}`} />
@@ -795,11 +821,11 @@ export default function App() {
               </div>
 
               {/* Breadcrumb with Active Tab Icon and Localized Title */}
-              <div className="flex items-center gap-1.5 ml-1">
-                <span className="font-mono text-[11px] font-bold text-brand-600 dark:text-brand-400 bg-brand-500/10 px-2 py-0.8 rounded-lg border border-brand-500/20">
-                  EMIS v3.1
+              <div className="flex items-center gap-2 ml-1">
+                <span className="font-mono text-[11px] font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
+                  EMIS v3.2
                 </span>
-                <span className="text-industrial-300 dark:text-industrial-600">/</span>
+                <span className="text-slate-600">/</span>
                 {(() => {
                   const currentNav = ALL_NAV_ITEMS.find(n => n.id === activeTab);
                   const NavIcon = currentNav?.icon || Activity;
@@ -807,8 +833,8 @@ export default function App() {
                     ? (currentNav?.arabicName || activeTab.replace(/-/g, ' '))
                     : (t(currentNav?.nameKey as any) || currentNav?.fallbackName || activeTab.replace(/-/g, ' '));
                   return (
-                    <div className="flex items-center gap-1.5 px-2.5 py-0.8 bg-white dark:bg-industrial-850 rounded-lg border border-industrial-200 dark:border-industrial-750 text-industrial-800 dark:text-industrial-200 font-semibold shadow-2xs">
-                      <NavIcon className="h-3.5 w-3.5 text-brand-500" />
+                    <div className="flex items-center gap-2 px-3 py-1 bg-[#11192a] rounded-lg border border-[#1e2a42] text-slate-200 font-semibold shadow-xs">
+                      <NavIcon className="h-3.5 w-3.5 text-blue-400" />
                       <span>{navTitle}</span>
                     </div>
                   );
@@ -819,104 +845,125 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setIsQuickNavOpen(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1.2 rounded-xl bg-brand-50 hover:bg-brand-100 dark:bg-brand-950/40 dark:hover:bg-brand-900/50 border border-brand-200 dark:border-brand-800/60 text-brand-700 dark:text-brand-300 text-xs font-semibold transition-all cursor-pointer shadow-2xs group"
-                title="Open Quick Switcher (Ctrl+K)"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#11192a] hover:bg-[#162137] border border-[#1e2a42] hover:border-blue-500/40 text-slate-300 text-xs font-medium transition-all cursor-pointer group"
+                title="Search modules & files (Ctrl+K)"
               >
-                <Command className="h-3.5 w-3.5 text-brand-500 group-hover:scale-110 transition-transform" />
-                <span>{language === 'ar' ? 'التنقل السريع' : 'Quick Jump'}</span>
-                <kbd className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-white dark:bg-industrial-800 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-700 shadow-2xs">
+                <Search className="h-3.5 w-3.5 text-slate-400 group-hover:text-blue-400 transition-colors" />
+                <span>{language === 'ar' ? 'البحث السريع والتنقل...' : 'Quick Search...'}</span>
+                <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#0a101d] text-slate-400 border border-[#1e2a42]">
                   ⌘K
                 </kbd>
               </button>
             </div>
 
-            {/* Right: Quick Operational Shortcuts */}
+            {/* Right: Operational Tool Cluster */}
             <div className="flex items-center gap-2">
-              {/* Port 13: Specialized AI Assistant Button */}
-              <button
-                type="button"
-                onClick={() => setIsAiAssistantOpen(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/40 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
-                title="المساعد الهندسي الذكي المتخصص (Port 13)"
-              >
-                <Bot className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
-                <span>المساعد الهندسي</span>
-              </button>
-
-              {/* Port 13: Remote Access & Field QR Button */}
-              <button
-                type="button"
-                onClick={() => setIsRemoteAccessOpen(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/40 border border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-300 text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
-                title="نفق الاتصال الميداني عن بعد عبر QR (Port 13)"
-              >
-                <Smartphone className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
-                <span>الاتصال الميداني</span>
-              </button>
-
-              {/* Port 13: Deep Diagnostics & System Health Button */}
-              <button
-                type="button"
-                onClick={() => setIsSystemHealthOpen(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
-                title="صحة النظام والتشخيصات المتقدمة (Port 13)"
-              >
-                <Activity className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span>صحة النظام</span>
-              </button>
-
-              {/* Port 13: Smart Firmware & Updates Button */}
-              <button
-                type="button"
-                onClick={() => setIsSmartUpdateOpen(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
-                title="التحديثات الهندسية الذكية (Port 13)"
-              >
-                <RefreshCw className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                <span>التحديثات</span>
-              </button>
-
-              {/* Port 16: Live Camera Scanner */}
+              {/* Field Camera / Nameplate Scanner */}
               <button
                 type="button"
                 onClick={() => setIsLiveScannerOpen(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-cyan-50 dark:bg-cyan-950/40 hover:bg-cyan-100 dark:hover:bg-cyan-900/40 border border-cyan-200 dark:border-cyan-800 text-cyan-700 dark:text-cyan-300 text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
-                title="مسح الكاميرا المباشر للباركود و QR (Port 16)"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#11192a] hover:bg-[#162137] border border-[#1e2a42] hover:border-blue-500/40 text-slate-200 text-xs font-medium transition-colors cursor-pointer"
+                title={language === 'ar' ? 'مسح لوحة البيانات والباركود بالكاميرا' : 'Field Camera & OCR Scanner'}
               >
-                <Camera className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
-                <span>المسح بالكاميرا</span>
+                <Camera className="h-3.5 w-3.5 text-blue-400" />
+                <span>{language === 'ar' ? 'المسح الميداني' : 'Scan'}</span>
               </button>
 
-              {/* Port 16: Organization Branding Profile */}
+              {/* Engineering Tools Menu Dropdown */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsToolsMenuOpen(prev => !prev)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#11192a] hover:bg-[#162137] border border-[#1e2a42] hover:border-blue-500/40 text-slate-200 text-xs font-medium transition-colors cursor-pointer"
+                  title={language === 'ar' ? 'الأدوات والخدمات الهندسية' : 'Engineering & Operations Tools'}
+                >
+                  <Wrench className="h-3.5 w-3.5 text-slate-400" />
+                  <span>{language === 'ar' ? 'الأدوات' : 'Tools'}</span>
+                  <ChevronDown className={`h-3 w-3 text-slate-400 transition-transform ${isToolsMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isToolsMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsToolsMenuOpen(false)} />
+                    <div className={`absolute ${isRTL ? 'left-0' : 'right-0'} mt-1.5 w-64 rounded-xl bg-[#0a101d] border border-[#1b263b] shadow-2xl z-50 py-1.5 text-xs text-slate-200`}>
+                      <button
+                        type="button"
+                        onClick={() => { setIsToolsMenuOpen(false); setIsAiAssistantOpen(true); }}
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-start hover:bg-[#11192a] transition-colors cursor-pointer"
+                      >
+                        <Bot className="h-4 w-4 text-purple-400" />
+                        <span>{language === 'ar' ? 'المساعد الهندسي الذكي' : 'AI Engineering Assistant'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setIsToolsMenuOpen(false); setIsSystemHealthOpen(true); }}
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-start hover:bg-[#11192a] transition-colors cursor-pointer"
+                      >
+                        <Activity className="h-4 w-4 text-emerald-400" />
+                        <span>{language === 'ar' ? 'صحة وتشخيصات النظام' : 'System Diagnostics'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setIsToolsMenuOpen(false); setIsRemoteAccessOpen(true); }}
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-start hover:bg-[#11192a] transition-colors cursor-pointer"
+                      >
+                        <Smartphone className="h-4 w-4 text-sky-400" />
+                        <span>{language === 'ar' ? 'الاتصال الميداني عن بعد (QR)' : 'Field QR Tunnel'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setIsToolsMenuOpen(false); setIsSmartUpdateOpen(true); }}
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-start hover:bg-[#11192a] transition-colors cursor-pointer"
+                      >
+                        <RefreshCw className="h-4 w-4 text-amber-400" />
+                        <span>{language === 'ar' ? 'التحديثات والتحقق من الإصدار' : 'Smart Updates'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setIsToolsMenuOpen(false); setIsOrganizationSettingsOpen(true); }}
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-start hover:bg-[#11192a] transition-colors cursor-pointer"
+                      >
+                        <Building2 className="h-4 w-4 text-indigo-400" />
+                        <span>{language === 'ar' ? 'هوية المؤسسة والترويسة' : 'Organization Profile'}</span>
+                      </button>
+                      <div className="my-1 border-t border-[#1b263b]" />
+                      <button
+                        type="button"
+                        onClick={() => { setIsToolsMenuOpen(false); setIsInstallModalOpen(true); }}
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-start hover:bg-[#11192a] text-emerald-400 font-medium transition-colors cursor-pointer"
+                      >
+                        <Download className="h-4 w-4" />
+                        <span>{language === 'ar' ? 'تثبيت التطبيق (PWA / APK)' : 'Install App / APK'}</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Action Center / Notifications */}
               <button
                 type="button"
-                onClick={() => setIsOrganizationSettingsOpen(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
-                title="إعدادات وترويسة هوية المؤسسة (Port 16)"
+                onClick={() => navigateToTab('action-center')}
+                className="relative p-2 rounded-lg bg-[#11192a] hover:bg-[#162137] border border-[#1e2a42] hover:border-blue-500/40 text-slate-300 transition-colors cursor-pointer"
+                title={language === 'ar' ? 'مركز التنبيهات والإجراءات' : 'Action Center & Alerts'}
               >
-                <Building2 className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-                <span>هوية المؤسسة</span>
+                <Bell className="h-3.5 w-3.5" />
+                {actionItemCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-rose-600 text-white text-[9px] font-bold flex items-center justify-center font-mono">
+                    {actionItemCount}
+                  </span>
+                )}
               </button>
 
-              {/* Direct PWA / Android APK Installation Button */}
+              {/* Language Switcher */}
               <button
                 type="button"
-                onClick={() => setIsInstallModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-brand-600 hover:from-emerald-500 hover:to-brand-500 text-white text-xs font-bold transition-all cursor-pointer shadow-2xs group"
-                title={language === 'ar' ? 'تثبيت نظام EMIS بصيغة أندرويد APK أو على الجهاز' : 'Install EMIS as Android APK or Desktop App'}
+                onClick={toggleLanguage}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#11192a] hover:bg-[#162137] border border-[#1e2a42] hover:border-blue-500/40 text-slate-200 text-xs font-mono font-medium transition-colors cursor-pointer"
+                title={language === 'ar' ? 'Switch to English' : 'التحويل إلى العربية'}
               >
-                <Smartphone className="h-3.5 w-3.5 text-emerald-100 group-hover:scale-110 transition-transform" />
-                <span>{language === 'ar' ? 'تثبيت أندرويد APK' : 'Install Android APK'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => navigateToTab('search')}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white dark:bg-industrial-850 hover:bg-industrial-100 dark:hover:bg-industrial-800 border border-industrial-200 dark:border-industrial-750 text-industrial-600 dark:text-industrial-300 text-xs transition-colors cursor-pointer shadow-2xs"
-                title="Search materials, equipment, and specifications"
-              >
-                <Search className="h-3.5 w-3.5 text-industrial-400" />
-                <span>Universal Search</span>
+                <Globe className="h-3.5 w-3.5 text-slate-400" />
+                <span>{language === 'ar' ? 'EN' : 'عربي'}</span>
               </button>
 
               {/* Top Bar Real-Time Status Indicator */}
@@ -930,7 +977,7 @@ export default function App() {
           {/* Bottom Row: Recent Tabs Quick Access Strip */}
           {recentTabs.length > 1 && (
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-0.5">
-              <span className="text-[10px] font-mono uppercase text-industrial-400 shrink-0 font-bold">
+              <span className="text-[10px] font-mono uppercase text-slate-500 shrink-0 font-bold">
                 {language === 'ar' ? 'سجل التصفح الأخير:' : 'Recent:'}
               </span>
               {recentTabs.map(tabId => {
@@ -949,8 +996,8 @@ export default function App() {
                     onClick={() => navigateToTab(tabId)}
                     className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all cursor-pointer ${
                       isCur
-                        ? 'bg-brand-600 text-white font-bold shadow-2xs'
-                        : 'bg-white/80 dark:bg-industrial-850 hover:bg-white dark:hover:bg-industrial-800 border border-industrial-200 dark:border-industrial-750 text-industrial-600 dark:text-industrial-300'
+                        ? 'bg-blue-600 text-white font-bold shadow-xs'
+                        : 'bg-[#11192a] hover:bg-[#162137] border border-[#1e2a42] text-slate-300'
                     }`}
                   >
                     <Icon className="h-3 w-3 shrink-0" />

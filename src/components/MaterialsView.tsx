@@ -47,12 +47,20 @@ import {
   Send,
   Camera,
   Tag,
-  ChevronDown
+  ChevronDown,
+  FolderKanban,
+  LayoutGrid,
+  List,
+  AlignJustify,
+  CheckSquare,
+  Square,
+  SlidersHorizontal,
+  ArrowRightLeft
 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import NameplateScanner from './NameplateScanner';
 import MaterialContextualChat from './MaterialContextualChat';
-import { Material, User, UserRole, Equipment, MaterialHistoryEvent, MaterialDocument, isTemporaryPartNumber, formatPartNumberDisplay } from '../types';
+import { Material, User, UserRole, Equipment, MaterialHistoryEvent, MaterialDocument, isTemporaryPartNumber, formatPartNumberDisplay, WarehouseFile } from '../types';
 import { dbService } from '../services/dbService';
 import { getBaseApiUrl, apiChatWithAi, apiAutoCompleteMaterial } from '../services/apiClient';
 import ExcelImportModal from './ExcelImportModal';
@@ -91,14 +99,78 @@ export default function MaterialsView({
   onNavigateToTab,
   onImportSuccess = () => {}
 }: MaterialsViewProps) {
-  const materials = Array.isArray(rawMaterials) && rawMaterials.length > 0 ? rawMaterials : (dbService.getMaterials() || []);
+  const [internalMaterials, setInternalMaterials] = useState<Material[]>(() => {
+    return Array.isArray(rawMaterials) && rawMaterials.length > 0 ? rawMaterials : (dbService.getMaterials() || []);
+  });
+
+  useEffect(() => {
+    if (Array.isArray(rawMaterials) && rawMaterials.length > 0) {
+      setInternalMaterials(rawMaterials);
+    }
+  }, [rawMaterials]);
+
+  useEffect(() => {
+    const handleRefresh = () => {
+      setInternalMaterials(dbService.getMaterials());
+    };
+    window.addEventListener('emis:materials-changed', handleRefresh);
+    window.addEventListener('emis:material-added', handleRefresh);
+    window.addEventListener('emis:material-deleted', handleRefresh);
+    return () => {
+      window.removeEventListener('emis:materials-changed', handleRefresh);
+      window.removeEventListener('emis:material-added', handleRefresh);
+      window.removeEventListener('emis:material-deleted', handleRefresh);
+    };
+  }, []);
+
+  const materials = internalMaterials;
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery === 'lowstock' ? '' : initialSearchQuery);
+  const [filterFileId, setFilterFileId] = useState<string>('All');
+  const [warehouseFiles, setWarehouseFiles] = useState<WarehouseFile[]>(() => dbService.getWarehouseFiles());
+
+  useEffect(() => {
+    const handleFilesChange = () => setWarehouseFiles(dbService.getWarehouseFiles());
+    window.addEventListener('emis:warehouse-files-changed', handleFilesChange);
+    return () => window.removeEventListener('emis:warehouse-files-changed', handleFilesChange);
+  }, []);
+
+  const fileMap = React.useMemo(() => {
+    const map = new Map<string, WarehouseFile>();
+    warehouseFiles.forEach(f => map.set(f.id, f));
+    return map;
+  }, [warehouseFiles]);
+
   const [filterStore, setFilterStore] = useState('All');
   const [filterStockStatus, setFilterStockStatus] = useState(initialSearchQuery === 'lowstock' ? 'Low' : 'All');
   const [filterPartNumberStatus, setFilterPartNumberStatus] = useState<'All' | 'WithPN' | 'WithoutPN'>('All');
   
   const [sortField, setSortField] = useState<SortField>('sequence');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+  const [viewMode, setViewMode] = useState<'comfortable' | 'dense' | 'grid'>('comfortable');
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const [searchOnlyCurrentFile, setSearchOnlyCurrentFile] = useState<boolean>(false);
+  const [isColumnMenuOpen, setIsColumnMenuOpen] = useState<boolean>(false);
+  const [visibleColumns, setVisibleColumns] = useState<{
+    sequence: boolean;
+    file: boolean;
+    partNumber: boolean;
+    description: boolean;
+    manufacturer: boolean;
+    quantity: boolean;
+    store: boolean;
+    actions: boolean;
+  }>({
+    sequence: true,
+    file: true,
+    partNumber: true,
+    description: true,
+    manufacturer: true,
+    quantity: true,
+    store: true,
+    actions: true,
+  });
+  const [showBatchMoveModal, setShowBatchMoveModal] = useState<boolean>(false);
+  const [batchMoveTargetFileId, setBatchMoveTargetFileId] = useState<string>('');
 
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [isEditingQuantity, setIsEditingQuantity] = useState(false);
@@ -160,6 +232,8 @@ export default function MaterialsView({
   const [printLabelSize, setPrintLabelSize] = useState<'standard' | 'small' | 'large'>('standard');
   const [isMobileExportOpen, setIsMobileExportOpen] = useState(false);
   const [isMobileToolsOpen, setIsMobileToolsOpen] = useState(false);
+  const [isDesktopExportOpen, setIsDesktopExportOpen] = useState(false);
+  const [isDesktopToolsOpen, setIsDesktopToolsOpen] = useState(false);
   
   // Serial Numbers Management States
   const [isAddingSerial, setIsAddingSerial] = useState(false);
@@ -559,6 +633,81 @@ export default function MaterialsView({
     URL.revokeObjectURL(url);
 
     triggerLocalToast('success', 'المستودع الرقمي: تم تصدير ملف Excel بنجاح / Engineering Materials Ledger successfully exported as Excel (.xlsx).');
+  };
+
+  const handleBatchMove = (targetFileId: string) => {
+    if (!targetFileId || selectedItemIds.length === 0) return;
+    const targetFile = warehouseFiles.find(f => f.id === targetFileId);
+    if (!targetFile) return;
+
+    const materialsToUpdate = materials.filter(m => selectedItemIds.includes(m.id || m.partNumber));
+    let nextSeq = (targetFile.lastSequenceNumber || targetFile.materialCount || 0) + 1;
+
+    materialsToUpdate.forEach(mat => {
+      const updated: Material = {
+        ...mat,
+        fileId: targetFile.id,
+        fileName: targetFile.name,
+        fileSequence: nextSeq++,
+        history: [
+          ...(mat.history || []),
+          {
+            id: `hist-move-${Date.now()}-${Math.random()}`,
+            action: 'Warehouse Reassigned',
+            details: `Moved to warehouse file: ${targetFile.name} (${targetFile.warehouseName || targetFile.warehouseCode})`,
+            userName: currentUser.name,
+            userRole: currentUser.role,
+            timestamp: new Date().toISOString()
+          }
+        ]
+      };
+      onUpdateMaterial(updated);
+    });
+
+    triggerLocalToast('success', `تم نقل ${materialsToUpdate.length} مادة إلى "${targetFile.name}" بنجاح.`);
+    setSelectedItemIds([]);
+    setShowBatchMoveModal(false);
+  };
+
+  const handleExportSelected = (format: 'xlsx' | 'csv') => {
+    const selectedMats = materials.filter(m => selectedItemIds.includes(m.id || m.partNumber));
+    if (selectedMats.length === 0) {
+      triggerLocalToast('error', 'No materials selected for export.');
+      return;
+    }
+
+    const rows = selectedMats.map((m, idx) => ({
+      'Sequence #': m.fileSequence ?? m.sequence ?? (idx + 1),
+      'Warehouse File': m.fileName || 'NDGS',
+      'Part Number': m.partNumber || '',
+      'Material Code': m.materialCode || '',
+      'Description': m.description || '',
+      'Manufacturer': m.manufacturer || '',
+      'Model': m.model || '',
+      'Quantity': m.quantity,
+      'Unit': m.unit || 'EA',
+      'Store': m.store || '',
+      'Rack': m.rack || '',
+      'Shelf': m.shelf || '',
+      'Status': m.status || 'Active'
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Selected Materials');
+
+    if (format === 'csv') {
+      const csvOutput = XLSX.utils.sheet_to_csv(worksheet);
+      const blob = new Blob(["\uFEFF" + csvOutput], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `EMIS_Selected_${Date.now()}.csv`;
+      link.click();
+    } else {
+      XLSX.writeFile(workbook, `EMIS_Selected_${Date.now()}.xlsx`);
+    }
+
+    triggerLocalToast('success', `تم تصدير ${selectedMats.length} مادة مختارة بصيغة ${format.toUpperCase()}.`);
   };
 
   const handleExportPDF = () => {
@@ -988,26 +1137,24 @@ Your guidelines:
     if (initialSearchQuery === 'lowstock') {
       setFilterStockStatus('Low');
       setSearchQuery('');
-    } else {
+    } else if (initialSearchQuery) {
       setSearchQuery(initialSearchQuery);
       setFilterStockStatus('All');
-      if (initialSearchQuery) {
-        const queryLower = initialSearchQuery.toLowerCase().trim();
-        const cleanQuery = queryLower.replace(/^[#\s]*(?:seq|sequence)[\s#:]*/i, '');
-        const found = materials.find(m => 
-          (m.partNumber && m.partNumber.toLowerCase() === queryLower) ||
-          (m.model && m.model.toLowerCase() === queryLower) ||
-          (m.sequence !== undefined && (String(m.sequence) === cleanQuery || `#${m.sequence}` === queryLower)) ||
-          (dbService.normalizeToken(m.partNumber) && dbService.normalizeToken(m.partNumber) === dbService.normalizeToken(queryLower)) ||
-          (m.model && dbService.normalizeToken(m.model) === dbService.normalizeToken(queryLower))
-        );
-        if (found) {
-          setSelectedMaterial(found);
-          setEditQtyValue(found.quantity);
-        }
+      const queryLower = initialSearchQuery.toLowerCase().trim();
+      const cleanQuery = queryLower.replace(/^[#\s]*(?:seq|sequence)[\s#:]*/i, '');
+      const found = materials.find(m => 
+        (m.partNumber && m.partNumber.toLowerCase() === queryLower) ||
+        (m.model && m.model.toLowerCase() === queryLower) ||
+        (m.sequence !== undefined && (String(m.sequence) === cleanQuery || `#${m.sequence}` === queryLower)) ||
+        (dbService.normalizeToken(m.partNumber) && dbService.normalizeToken(m.partNumber) === dbService.normalizeToken(queryLower)) ||
+        (m.model && dbService.normalizeToken(m.model) === dbService.normalizeToken(queryLower))
+      );
+      if (found) {
+        setSelectedMaterial(prev => (prev?.id === found.id && prev?.partNumber === found.partNumber ? prev : found));
+        setEditQtyValue(found.quantity);
       }
     }
-  }, [initialSearchQuery, materials]);
+  }, [initialSearchQuery]);
 
   // Synchronize modal state if materials collection changes
   useEffect(() => {
@@ -1017,7 +1164,13 @@ Your guidelines:
         (m.sequence !== undefined && selectedMaterial.sequence !== undefined && m.sequence === selectedMaterial.sequence) ||
         (m.partNumber && selectedMaterial.partNumber && m.partNumber.toUpperCase() === selectedMaterial.partNumber.toUpperCase())
       );
-      if (fresh) {
+      if (
+        fresh && 
+        (fresh.quantity !== selectedMaterial.quantity ||
+         fresh.updatedAt !== selectedMaterial.updatedAt ||
+         fresh.partNumber !== selectedMaterial.partNumber ||
+         fresh.description !== selectedMaterial.description)
+      ) {
         setSelectedMaterial(fresh);
       }
     }
@@ -1700,7 +1853,13 @@ Your guidelines:
         (filterPartNumberStatus === 'WithPN' && !isTemp) ||
         (filterPartNumberStatus === 'WithoutPN' && isTemp);
 
-      return matchQuery && matchStore && matchStock && matchPNStatus;
+      const matchFile = (filterFileId === 'All')
+        ? true
+        : (searchOnlyCurrentFile || !searchQuery.trim()
+            ? (m.fileId || 'wh-file-ndgs-master') === filterFileId
+            : true);
+
+      return matchQuery && matchStore && matchStock && matchPNStatus && matchFile;
     })
     .sort((a, b) => {
       if (sortField === 'partNumber') {
@@ -1771,67 +1930,31 @@ Your guidelines:
             <p className="text-xs text-industrial-500 mt-1">Authorized engineering material registry directory.</p>
           </div>
           
-          {/* Desktop Toolbar (visible on md screens and up) */}
-          <div className="hidden md:flex gap-2.5 flex-wrap">
-            <button
-              onClick={handleExportCSV}
-              className="inline-flex items-center gap-1.5 bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200 font-semibold text-xs px-3.5 py-2.5 rounded-xl transition-colors cursor-pointer shadow-2xs"
-            >
-              <FileSpreadsheet className="h-4 w-4 text-brand-600" />
-              <span>تصدير CSV / CSV Export</span>
-            </button>
-            <button
-              onClick={handleExportXLSX}
-              className="inline-flex items-center gap-1.5 bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200 font-semibold text-xs px-3.5 py-2.5 rounded-xl transition-colors cursor-pointer shadow-2xs"
-            >
-              <FileSpreadsheet className="h-4 w-4 text-brand-600" />
-              <span>تصدير Excel / Excel Export</span>
-            </button>
-            <button
-              onClick={handleExportPDF}
-              className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs px-3.5 py-2.5 rounded-xl transition-colors cursor-pointer shadow-2xs"
-            >
-              <Printer className="h-4 w-4 text-white" />
-              <span>تصدير PDF / PDF Export</span>
-            </button>
+          {/* Desktop Toolbar - Clustered & Streamlined */}
+          <div className="hidden md:flex items-center gap-2 flex-wrap">
+            {/* Primary Action 1: Add SKU */}
             {isWritable && (
               <button
-                onClick={() => setIsShowingImportModal(true)}
-                className="inline-flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-semibold text-xs px-3.5 py-2.5 rounded-xl transition-colors cursor-pointer shadow-2xs"
-                id="import-excel-btn"
+                onClick={() => onNavigateToTab('add-material')}
+                className="inline-flex items-center gap-1.5 bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs px-3.5 py-2 rounded-xl transition-all shadow-sm cursor-pointer active:scale-95"
               >
-                <Upload className="h-4 w-4 text-emerald-600" />
-                <span>استيراد اكسل / Import Materials</span>
+                <Plus className="h-4 w-4" />
+                <span>إضافة صنف / Add SKU</span>
               </button>
             )}
-            <button
-              onClick={() => setIsShowingBlacklistManager(true)}
-              className="inline-flex items-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-semibold text-xs px-3.5 py-2.5 rounded-xl transition-colors cursor-pointer shadow-2xs"
-            >
-              <ShieldAlert className="h-4 w-4 text-red-600 animate-pulse" />
-              <span>القائمة السوداء للموردين / Supplier Blacklist</span>
-            </button>
-            {isWritable && (
-              <button
-                onClick={() => setIsShowingConfirmClearAll(true)}
-                className="inline-flex items-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-semibold text-xs px-3.5 py-2.5 rounded-xl transition-colors cursor-pointer shadow-2xs"
-              >
-                <Trash2 className="h-4 w-4 text-red-500" />
-                <span>مسح الكل / Clear All Materials</span>
-              </button>
-            )}
+
+            {/* Primary Action 2: Nameplate & Barcode Scanner */}
             <NameplateScanner
               materialsList={materials}
-              buttonClassName="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-3.5 py-2.5 rounded-xl transition-colors cursor-pointer shadow-sm"
               renderTrigger={(open) => (
                 <button
                   type="button"
                   onClick={open}
-                  className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-3.5 py-2.5 rounded-xl transition-colors cursor-pointer shadow-sm"
+                  className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-3.5 py-2 rounded-xl transition-all shadow-sm cursor-pointer active:scale-95"
                   id="btn-scan-ledger-top"
                 >
                   <Camera className="h-4 w-4" />
-                  <span>مسح باركود / لوحة المادة</span>
+                  <span>مسح باركود / Scan</span>
                 </button>
               )}
               onEditMaterial={(mat) => {
@@ -1842,15 +1965,116 @@ Your guidelines:
                 onNavigateToTab('add-material', '', data);
               }}
             />
-            {isWritable && (
+
+            {/* Clustered Action 3: Export Dropdown */}
+            <div className="relative">
               <button
-                onClick={() => onNavigateToTab('add-material')}
-                className="inline-flex items-center gap-1.5 bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs px-3.5 py-2.5 rounded-xl transition-colors cursor-pointer shadow-sm"
+                type="button"
+                onClick={() => {
+                  setIsDesktopExportOpen(!isDesktopExportOpen);
+                  setIsDesktopToolsOpen(false);
+                }}
+                className="inline-flex items-center gap-1.5 bg-industrial-100 hover:bg-industrial-150 text-industrial-800 font-semibold text-xs px-3 py-2 rounded-xl border border-industrial-200 transition-colors cursor-pointer"
               >
-                <Plus className="h-4 w-4" />
-                <span>Add Material SKU</span>
+                <FileSpreadsheet className="h-4 w-4 text-brand-600" />
+                <span>تصدير / Export</span>
+                <ChevronDown className={`h-3 w-3 text-industrial-500 transition-transform ${isDesktopExportOpen ? 'rotate-180' : ''}`} />
               </button>
-            )}
+              {isDesktopExportOpen && (
+                <div 
+                  className="absolute right-0 top-full mt-1.5 w-52 bg-white border border-industrial-200 rounded-xl shadow-xl z-30 p-1.5 space-y-1"
+                  onMouseLeave={() => setIsDesktopExportOpen(false)}
+                >
+                  <button
+                    onClick={() => { handleExportCSV(); setIsDesktopExportOpen(false); }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-industrial-700 hover:bg-brand-50 hover:text-brand-700 rounded-lg text-left transition-colors cursor-pointer"
+                  >
+                    <FileSpreadsheet className="h-4 w-4 text-brand-600" />
+                    <div>
+                      <div className="font-semibold">تصدير CSV</div>
+                      <div className="text-[10px] text-industrial-400">Comma Separated File</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => { handleExportXLSX(); setIsDesktopExportOpen(false); }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-industrial-700 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg text-left transition-colors cursor-pointer"
+                  >
+                    <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                    <div>
+                      <div className="font-semibold">تصدير Excel (.xlsx)</div>
+                      <div className="text-[10px] text-industrial-400">Full Ingestion Spreadsheet</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => { handleExportPDF(); setIsDesktopExportOpen(false); }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-industrial-700 hover:bg-slate-50 hover:text-slate-900 rounded-lg text-left transition-colors cursor-pointer"
+                  >
+                    <Printer className="h-4 w-4 text-slate-800" />
+                    <div>
+                      <div className="font-semibold">تصدير كشف فحص PDF</div>
+                      <div className="text-[10px] text-industrial-400">Formal Audit & Sign-off Sheet</div>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Clustered Action 4: Management & Tools Dropdown */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDesktopToolsOpen(!isDesktopToolsOpen);
+                  setIsDesktopExportOpen(false);
+                }}
+                className="inline-flex items-center gap-1.5 bg-industrial-100 hover:bg-industrial-150 text-industrial-800 font-semibold text-xs px-3 py-2 rounded-xl border border-industrial-200 transition-colors cursor-pointer"
+              >
+                <Wrench className="h-4 w-4 text-industrial-600" />
+                <span>أدوات المستودع / Tools</span>
+                <ChevronDown className={`h-3 w-3 text-industrial-500 transition-transform ${isDesktopToolsOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {isDesktopToolsOpen && (
+                <div 
+                  className="absolute right-0 top-full mt-1.5 w-60 bg-white border border-industrial-200 rounded-xl shadow-xl z-30 p-1.5 space-y-1"
+                  onMouseLeave={() => setIsDesktopToolsOpen(false)}
+                >
+                  {isWritable && (
+                    <button
+                      onClick={() => { setIsShowingImportModal(true); setIsDesktopToolsOpen(false); }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-industrial-700 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg text-left transition-colors cursor-pointer"
+                    >
+                      <Upload className="h-4 w-4 text-emerald-600" />
+                      <div>
+                        <div className="font-semibold">استيراد من إكسل</div>
+                        <div className="text-[10px] text-industrial-400">Bulk Excel Ingestion</div>
+                      </div>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { setIsShowingBlacklistManager(true); setIsDesktopToolsOpen(false); }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-industrial-700 hover:bg-amber-50 hover:text-amber-700 rounded-lg text-left transition-colors cursor-pointer"
+                  >
+                    <ShieldAlert className="h-4 w-4 text-amber-600" />
+                    <div>
+                      <div className="font-semibold">القائمة السوداء للموردين</div>
+                      <div className="text-[10px] text-industrial-400">Quarantine & Supplier Blacklist</div>
+                    </div>
+                  </button>
+                  {isWritable && (
+                    <button
+                      onClick={() => { setIsShowingConfirmClearAll(true); setIsDesktopToolsOpen(false); }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-lg text-left transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="h-4 w-4 text-rose-500" />
+                      <div>
+                        <div className="font-semibold">مسح كافة المواد</div>
+                        <div className="text-[10px] text-rose-400">Clear All Records (Admin)</div>
+                      </div>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Mobile Sleek Action Bar (clean 2-row layout prevents pushing table off screen) */}
@@ -2057,10 +2281,228 @@ Your guidelines:
             </div>
           </div>
         </div>
+
+        {/* Warehouse File Filter Tabs */}
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-industrial-100">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-industrial-700 shrink-0">
+            <FolderKanban className="h-4 w-4 text-indigo-600" />
+            <span>ملف المخزن / Warehouse File:</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth">
+            <button
+              type="button"
+              onClick={() => setFilterFileId('All')}
+              className={`text-xs px-2.5 py-1 rounded-lg border transition-all cursor-pointer font-medium ${
+                filterFileId === 'All'
+                  ? 'bg-indigo-600 text-white border-indigo-700 font-bold shadow-2xs'
+                  : 'bg-industrial-50 text-industrial-700 border-industrial-200 hover:bg-industrial-100'
+              }`}
+            >
+              جميع ملفات المخازن ({materials.length})
+            </button>
+            {warehouseFiles.map(file => {
+              const count = materials.filter(m => (m.fileId || 'wh-file-ndgs-master') === file.id).length;
+              return (
+                <button
+                  key={file.id}
+                  type="button"
+                  onClick={() => setFilterFileId(file.id)}
+                  className={`text-xs px-2.5 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
+                    filterFileId === file.id
+                      ? 'bg-indigo-600 text-white border-indigo-700 font-bold shadow-2xs'
+                      : 'bg-white text-industrial-700 border-industrial-200 hover:bg-industrial-50'
+                  }`}
+                  title={`${file.name} - ${file.warehouseName || file.warehouseCode}`}
+                >
+                  <span>{file.name}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                    filterFileId === file.id ? 'bg-indigo-800 text-indigo-100' : 'bg-industrial-100 text-industrial-600'
+                  }`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {filterFileId !== 'All' && (
+            <label className="flex items-center gap-1.5 text-xs text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200/80 cursor-pointer font-medium select-none ms-auto shrink-0">
+              <input
+                type="checkbox"
+                checked={searchOnlyCurrentFile}
+                onChange={(e) => setSearchOnlyCurrentFile(e.target.checked)}
+                className="rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+              />
+              <span>البحث داخل هذا الملف فقط / Search this file only</span>
+            </label>
+          )}
+        </div>
       </div>
 
       {/* LEDGER CONTENT AREA */}
       <div className="bg-white rounded-2xl border border-industrial-200 shadow-sm overflow-hidden">
+        {/* View Mode & Selection Controls Toolbar */}
+        <div className="bg-industrial-50/80 p-3 px-4 border-b border-industrial-200 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-1.5 text-xs text-industrial-700 font-medium cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={filteredMaterials.length > 0 && selectedItemIds.length === filteredMaterials.length}
+                onChange={() => {
+                  if (selectedItemIds.length === filteredMaterials.length) {
+                    setSelectedItemIds([]);
+                  } else {
+                    setSelectedItemIds(filteredMaterials.map(m => m.id || m.partNumber));
+                  }
+                }}
+                className="rounded border-industrial-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+              />
+              <span className="font-mono text-[11px] font-semibold text-industrial-800">
+                {selectedItemIds.length > 0
+                  ? `Selected (${selectedItemIds.length} of ${filteredMaterials.length})`
+                  : `Select All (${filteredMaterials.length})`}
+              </span>
+            </label>
+
+            {selectedItemIds.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 pl-3 border-l border-industrial-200 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setShowBatchMoveModal(true)}
+                  className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-[11px] transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                  title="نقل المواد المحددة إلى ملف مخزن آخر"
+                >
+                  <ArrowRightLeft className="h-3 w-3" />
+                  <span>نقل لمخزن / Move</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleExportSelected('xlsx')}
+                  className="px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-[11px] transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                  title="تصدير المواد المحددة كملف Excel"
+                >
+                  <FileSpreadsheet className="h-3 w-3" />
+                  <span>تصدير XLSX</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const selectedMats = materials.filter(m => selectedItemIds.includes(m.id || m.partNumber));
+                    if (selectedMats[0]) {
+                      handleOpenPrintLabelModal(selectedMats[0]);
+                    }
+                  }}
+                  className="px-2 py-1 rounded bg-brand-600 hover:bg-brand-500 text-white font-medium text-[11px] transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                >
+                  <Printer className="h-3 w-3" />
+                  <span>طباعة ملصق</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedItemIds([])}
+                  className="px-2 py-1 rounded text-[11px] text-industrial-500 hover:text-industrial-800 hover:bg-industrial-200/60 transition-colors cursor-pointer"
+                >
+                  إلغاء التحديد
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Column Visibility Customizer */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsColumnMenuOpen(!isColumnMenuOpen)}
+                className={`p-1.5 rounded-lg text-xs flex items-center gap-1.5 transition-colors cursor-pointer border ${
+                  isColumnMenuOpen
+                    ? 'bg-brand-50 text-brand-700 border-brand-300'
+                    : 'bg-white text-industrial-600 hover:text-industrial-900 border-industrial-200 shadow-2xs'
+                }`}
+                title="Column Visibility / تخصيص الأعمدة"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline text-[11px] font-medium">الأعمدة</span>
+              </button>
+              {isColumnMenuOpen && (
+                <div 
+                  className="absolute right-0 top-full mt-1.5 w-48 bg-white border border-industrial-200 rounded-xl shadow-xl z-30 p-2 space-y-1 text-xs text-industrial-700 select-none"
+                  onMouseLeave={() => setIsColumnMenuOpen(false)}
+                >
+                  <div className="font-bold text-[11px] text-industrial-900 border-b border-industrial-100 pb-1 mb-1">
+                    إظهار/إخفاء الأعمدة
+                  </div>
+                  {[
+                    { key: 'sequence', label: 'Seq # / التسلسل' },
+                    { key: 'partNumber', label: 'رقم القطعة / Part No.' },
+                    { key: 'description', label: 'الوصف / Description' },
+                    { key: 'manufacturer', label: 'الشركة والموديل / Mfg' },
+                    { key: 'quantity', label: 'الكمية والحالة / Qty' },
+                    { key: 'store', label: 'الموقع / Location' },
+                    { key: 'actions', label: 'الإجراءات / Actions' }
+                  ].map(({ key, label }) => (
+                    <label key={key} className="flex items-center gap-2 cursor-pointer hover:bg-industrial-50 p-1 rounded">
+                      <input
+                        type="checkbox"
+                        checked={(visibleColumns as any)[key]}
+                        onChange={() => setVisibleColumns(prev => ({ ...prev, [key]: !(prev as any)[key] }))}
+                        className="rounded border-industrial-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                      />
+                      <span className="text-[11px]">{label}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* View Mode Switcher */}
+            <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-industrial-200 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setViewMode('comfortable')}
+                className={`p-1.5 rounded-md text-xs flex items-center gap-1 transition-all cursor-pointer ${
+                  viewMode === 'comfortable'
+                    ? 'bg-brand-50 text-brand-700 font-bold border border-brand-200'
+                    : 'text-industrial-500 hover:text-industrial-800'
+                }`}
+                title="Comfortable Table View"
+              >
+                <List className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline text-[11px]">Comfortable</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('dense')}
+                className={`p-1.5 rounded-md text-xs flex items-center gap-1 transition-all cursor-pointer ${
+                  viewMode === 'dense'
+                    ? 'bg-brand-50 text-brand-700 font-bold border border-brand-200'
+                    : 'text-industrial-500 hover:text-industrial-800'
+                }`}
+                title="Dense Data Table (High Density)"
+              >
+                <AlignJustify className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline text-[11px]">Dense</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('grid')}
+                className={`p-1.5 rounded-md text-xs flex items-center gap-1 transition-all cursor-pointer ${
+                  viewMode === 'grid'
+                    ? 'bg-brand-50 text-brand-700 font-bold border border-brand-200'
+                    : 'text-industrial-500 hover:text-industrial-800'
+                }`}
+                title="Card Grid View"
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline text-[11px]">Cards</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         {filteredMaterials.length === 0 ? (
           <div className="text-center p-12 space-y-3">
             <div className="inline-flex p-4 bg-industrial-100 rounded-full text-industrial-400">
@@ -2081,6 +2523,83 @@ Your guidelines:
               Clear Filters
             </button>
           </div>
+        ) : viewMode === 'grid' ? (
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 bg-industrial-50/40">
+            {filteredMaterials.map((material, idx) => {
+              const matKey = material.id || material.partNumber || (material.sequence ? String(material.sequence) : String(idx));
+              const isSelected = selectedItemIds.includes(matKey);
+              const fileObj = fileMap.get(material.fileId || '');
+              return (
+                <div
+                  key={`${material.partNumber}-${idx}`}
+                  onClick={() => {
+                    setSelectedMaterial(material);
+                    setEditQtyValue(material.quantity);
+                  }}
+                  className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-between gap-3 ${
+                    isSelected
+                      ? 'bg-brand-50/60 border-brand-500 shadow-sm ring-1 ring-brand-500'
+                      : 'bg-white hover:bg-industrial-50/60 border-industrial-200 hover:border-industrial-300 shadow-2xs'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={() => {
+                            setSelectedItemIds(prev => prev.includes(matKey) ? prev.filter(k => k !== matKey) : [...prev, matKey]);
+                          }}
+                          className="rounded border-industrial-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                        />
+                        <span className="font-mono font-bold text-xs text-brand-700">
+                          {material.fileSequence !== undefined ? `#${material.fileSequence}` : (material.sequence !== undefined ? `#${material.sequence}` : '—')}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200/70 font-semibold truncate max-w-[130px]" title={fileObj?.name || material.fileName}>
+                        {fileObj?.name || material.fileName || 'NDGS'}
+                      </span>
+                    </div>
+
+                    <div className="mt-2.5">
+                      <p className="font-mono font-bold text-sm text-industrial-900 tracking-wide select-all">
+                        {formatPartNumberDisplay(material.partNumber, 'بدون رقم قطعة')}
+                      </p>
+                      <p className="text-xs text-industrial-700 font-medium line-clamp-2 mt-1" title={material.description}>
+                        {material.description}
+                      </p>
+                      <p className="text-[11px] text-industrial-500 mt-1 truncate">
+                        {material.manufacturer || '—'} {material.model ? `• ${material.model}` : ''}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-2.5 border-t border-industrial-100 flex items-center justify-between text-xs">
+                    <span className="font-mono font-bold text-industrial-900">
+                      {material.quantity} <span className="text-[10px] text-industrial-500 font-normal">{material.unit || 'EA'}</span>
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {getStockLabel(material)}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedMaterial(material);
+                          setEditQtyValue(material.quantity);
+                        }}
+                        className="p-1 rounded-md text-industrial-500 hover:text-industrial-900 hover:bg-industrial-100 cursor-pointer"
+                        title="Inspect"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         ) : (
           <>
             {/* Responsive Table Wrapper */}
@@ -2088,49 +2607,79 @@ Your guidelines:
               <table className="w-full text-left border-collapse" id="materials-table">
                 <thead>
                   <tr className="bg-industrial-50 border-b border-industrial-200 text-industrial-500 text-[11px] font-mono uppercase tracking-wider select-none">
-                    <th 
-                      onClick={() => handleSort('sequence')}
-                      className="p-4 font-semibold cursor-pointer hover:bg-industrial-100/60 transition-colors"
-                    >
-                      <div className="flex items-center gap-1">
-                        Seq # / التسلسل <ChevronsUpDown className="h-3.5 w-3.5" />
-                      </div>
+                    <th className="p-3 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={filteredMaterials.length > 0 && selectedItemIds.length === filteredMaterials.length}
+                        onChange={() => {
+                          if (selectedItemIds.length === filteredMaterials.length) {
+                            setSelectedItemIds([]);
+                          } else {
+                            setSelectedItemIds(filteredMaterials.map(m => m.id || m.partNumber || (m.sequence ? String(m.sequence) : '')));
+                          }
+                        }}
+                        className="rounded border-industrial-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                      />
                     </th>
-                    <th 
-                      onClick={() => handleSort('partNumber')}
-                      className="p-4 font-semibold cursor-pointer hover:bg-industrial-100/60 transition-colors"
-                    >
-                      <div className="flex items-center gap-1">
-                        Part Number <ChevronsUpDown className="h-3.5 w-3.5" />
-                      </div>
-                    </th>
-                    <th className="p-4 font-semibold">Description</th>
-                    <th 
-                      onClick={() => handleSort('manufacturer')}
-                      className="p-4 font-semibold cursor-pointer hover:bg-industrial-100/60 transition-colors"
-                    >
-                      <div className="flex items-center gap-1">
-                        Manufacturer / Model <ChevronsUpDown className="h-3.5 w-3.5" />
-                      </div>
-                    </th>
-                    <th 
-                      onClick={() => handleSort('quantity')}
-                      className="p-4 font-semibold cursor-pointer hover:bg-industrial-100/60 transition-colors text-right"
-                    >
-                      <div className="flex items-center gap-1 justify-end">
-                        Quantity <ChevronsUpDown className="h-3.5 w-3.5" />
-                      </div>
-                    </th>
-                    <th className="p-4 font-semibold text-center">Status</th>
-                    <th 
-                      onClick={() => handleSort('store')}
-                      className="p-4 font-semibold cursor-pointer hover:bg-industrial-100/60 transition-colors"
-                    >
-                      <div className="flex items-center gap-1">
-                        Storage Location <ChevronsUpDown className="h-3.5 w-3.5" />
-                      </div>
-                    </th>
-                    <th className="p-4 font-semibold text-right">Actions</th>
+                    {visibleColumns.sequence && (
+                      <th 
+                        onClick={() => handleSort('sequence')}
+                        className={`${viewMode === 'dense' ? 'py-2 px-3' : 'p-4'} font-semibold cursor-pointer hover:bg-industrial-100/60 transition-colors`}
+                      >
+                        <div className="flex items-center gap-1">
+                          Seq # / التسلسل <ChevronsUpDown className="h-3.5 w-3.5" />
+                        </div>
+                      </th>
+                    )}
+                    {visibleColumns.partNumber && (
+                      <th 
+                        onClick={() => handleSort('partNumber')}
+                        className={`${viewMode === 'dense' ? 'py-2 px-3' : 'p-4'} font-semibold cursor-pointer hover:bg-industrial-100/60 transition-colors`}
+                      >
+                        <div className="flex items-center gap-1">
+                          Part Number <ChevronsUpDown className="h-3.5 w-3.5" />
+                        </div>
+                      </th>
+                    )}
+                    {visibleColumns.description && (
+                      <th className={`${viewMode === 'dense' ? 'py-2 px-3' : 'p-4'} font-semibold`}>Description</th>
+                    )}
+                    {visibleColumns.manufacturer && (
+                      <th 
+                        onClick={() => handleSort('manufacturer')}
+                        className={`${viewMode === 'dense' ? 'py-2 px-3' : 'p-4'} font-semibold cursor-pointer hover:bg-industrial-100/60 transition-colors`}
+                      >
+                        <div className="flex items-center gap-1">
+                          Manufacturer / Model <ChevronsUpDown className="h-3.5 w-3.5" />
+                        </div>
+                      </th>
+                    )}
+                    {visibleColumns.quantity && (
+                      <>
+                        <th 
+                          onClick={() => handleSort('quantity')}
+                          className={`${viewMode === 'dense' ? 'py-2 px-3' : 'p-4'} font-semibold cursor-pointer hover:bg-industrial-100/60 transition-colors text-right`}
+                        >
+                          <div className="flex items-center gap-1 justify-end">
+                            Quantity <ChevronsUpDown className="h-3.5 w-3.5" />
+                          </div>
+                        </th>
+                        <th className={`${viewMode === 'dense' ? 'py-2 px-3' : 'p-4'} font-semibold text-center`}>Status</th>
+                      </>
+                    )}
+                    {visibleColumns.store && (
+                      <th 
+                        onClick={() => handleSort('store')}
+                        className={`${viewMode === 'dense' ? 'py-2 px-3' : 'p-4'} font-semibold cursor-pointer hover:bg-industrial-100/60 transition-colors`}
+                      >
+                        <div className="flex items-center gap-1">
+                          Storage Location <ChevronsUpDown className="h-3.5 w-3.5" />
+                        </div>
+                      </th>
+                    )}
+                    {visibleColumns.actions && (
+                      <th className={`${viewMode === 'dense' ? 'py-2 px-3' : 'p-4'} font-semibold text-right`}>Actions</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-industrial-100 text-xs text-industrial-700">
@@ -2140,136 +2689,178 @@ Your guidelines:
                       className={`transition-colors group ${
                         material.isIncomplete
                           ? 'bg-amber-50/40 hover:bg-amber-100/40 border-l-2 border-l-amber-500'
+                          : selectedItemIds.includes(material.id || material.partNumber || (material.sequence ? String(material.sequence) : ''))
+                          ? 'bg-brand-50/30 hover:bg-brand-50/50'
                           : 'hover:bg-industrial-50/50'
                       }`}
                     >
-                      {/* Material Sequence Number */}
-                      <td className="p-4 font-mono font-bold text-brand-700 whitespace-nowrap">
-                        {material.sequence !== undefined ? `#${material.sequence}` : <span className="text-industrial-300 font-normal italic">-</span>}
+                      {/* Selection Checkbox */}
+                      <td className={`${viewMode === 'dense' ? 'py-1.5 px-3' : 'p-4'} text-center`} onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedItemIds.includes(material.id || material.partNumber || (material.sequence ? String(material.sequence) : ''))}
+                          onChange={() => {
+                            const key = material.id || material.partNumber || (material.sequence ? String(material.sequence) : '');
+                            setSelectedItemIds(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+                          }}
+                          className="rounded border-industrial-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                        />
                       </td>
 
-                      {/* Part Number */}
-                      <td className="p-4 whitespace-nowrap">
-                        {isTemporaryPartNumber(material.partNumber) || material.isPartNumberAutoGenerated ? (
-                          <div 
-                            className="inline-flex items-center gap-1.5 cursor-pointer group"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedMaterial(material);
-                              setIsEditingCoreDetails(true);
-                            }}
-                            title="لم يتم تحديد رقم قطعة في الملف الأصلي (انقر هنا لإدخال رقم قطعة)"
-                          >
-                            <span className="font-mono font-bold text-industrial-400">—</span>
-                            <span className="inline-flex items-center gap-1 text-[10px] font-sans font-medium text-amber-700 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded group-hover:bg-amber-100 group-hover:border-amber-300 transition-colors">
-                              بدون رقم قطعة
-                              <Edit className="h-2.5 w-2.5 opacity-60 group-hover:opacity-100" />
+                      {/* Material Sequence Number & File Badge */}
+                      {visibleColumns.sequence && (
+                        <td className={`${viewMode === 'dense' ? 'py-1.5 px-3' : 'p-4'} font-mono font-bold whitespace-nowrap`}>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-brand-700">
+                              {material.fileSequence !== undefined ? `#${material.fileSequence}` : (material.sequence !== undefined ? `#${material.sequence}` : '-')}
+                            </span>
+                            <span 
+                              className="inline-flex items-center gap-1 text-[9.5px] font-sans font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-1.5 py-0.5 rounded w-fit shadow-2xs" 
+                              title={fileMap.get(material.fileId || '')?.name || material.fileName || 'NDGS Instrument Materials'}
+                            >
+                              <FolderKanban className="h-2.5 w-2.5 text-indigo-500 shrink-0" />
+                              <span className="max-w-[110px] truncate">
+                                {fileMap.get(material.fileId || '')?.name || material.fileName || 'NDGS Instrument Materials'}
+                              </span>
                             </span>
                           </div>
-                        ) : (
-                          <span className="font-mono font-semibold text-industrial-900 select-all">
-                            {material.partNumber}
-                          </span>
-                        )}
-                      </td>
+                        </td>
+                      )}
+
+                      {/* Part Number */}
+                      {visibleColumns.partNumber && (
+                        <td className={`${viewMode === 'dense' ? 'py-1.5 px-3' : 'p-4'} whitespace-nowrap`}>
+                          {isTemporaryPartNumber(material.partNumber) || material.isPartNumberAutoGenerated ? (
+                            <div 
+                              className="inline-flex items-center gap-1.5 cursor-pointer group"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedMaterial(material);
+                                setIsEditingCoreDetails(true);
+                              }}
+                              title="لم يتم تحديد رقم قطعة في الملف الأصلي (انقر هنا لإدخال رقم قطعة)"
+                            >
+                              <span className="font-mono font-bold text-industrial-400">—</span>
+                              <span className="inline-flex items-center gap-1 text-[10px] font-sans font-medium text-amber-700 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded group-hover:bg-amber-100 group-hover:border-amber-300 transition-colors">
+                                بدون رقم قطعة
+                                <Edit className="h-2.5 w-2.5 opacity-60 group-hover:opacity-100" />
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="font-mono font-semibold text-industrial-900 select-all">
+                              {material.partNumber}
+                            </span>
+                          )}
+                        </td>
+                      )}
 
                       {/* Description & Engineering Tags */}
-                      <td className="p-4 max-w-sm" title={material.description}>
-                        <div className="font-medium text-industrial-900 line-clamp-2 leading-snug">
-                          {material.description}
-                        </div>
-                        {(material.tagNumber || material.installationLocation || material.tagLocation || material.workOrder || material.woNumber || material.mrfReference || material.mrfNumber || material.mrf) && (
-                          <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                            {material.tagNumber && (
-                              <span className="inline-flex items-center gap-1 text-[9px] font-mono font-bold text-purple-700 bg-purple-50 border border-purple-200/90 px-1.5 py-0.5 rounded shadow-2xs" title="Equipment Tag #">
-                                <Tag className="h-2.5 w-2.5 shrink-0" />
-                                <span>{material.tagNumber}</span>
-                              </span>
-                            )}
-                            {(material.installationLocation || material.tagLocation) && (
-                              <span className="inline-flex items-center gap-1 text-[9px] font-medium text-indigo-700 bg-indigo-50 border border-indigo-200/90 px-1.5 py-0.5 rounded shadow-2xs" title="موقع التثبيت الميداني الفعلي (مثل مكان تثبيت السلينويد)">
-                                <MapPin className="h-2.5 w-2.5 shrink-0 text-indigo-500" />
-                                <span className="max-w-[130px] truncate">{material.installationLocation || material.tagLocation}</span>
-                              </span>
-                            )}
-                            {(material.workOrder || material.woNumber) && (
-                              <span className="inline-flex items-center gap-1 text-[9px] font-mono font-semibold text-amber-800 bg-amber-50 border border-amber-200/90 px-1.5 py-0.5 rounded" title="رقم أمر العمل Work Order #">
-                                <span>WO: {material.workOrder || material.woNumber}</span>
-                              </span>
-                            )}
-                            {(material.mrfReference || material.mrfNumber || material.mrf) && (
-                              <span className="inline-flex items-center gap-1 text-[9px] font-mono font-semibold text-blue-800 bg-blue-50 border border-blue-200/90 px-1.5 py-0.5 rounded" title="رقم طلب صرف المواد MRF #">
-                                <span>MRF: {material.mrfReference || material.mrfNumber || material.mrf}</span>
-                              </span>
-                            )}
+                      {visibleColumns.description && (
+                        <td className={`${viewMode === 'dense' ? 'py-1.5 px-3' : 'p-4'} max-w-sm`} title={material.description}>
+                          <div className="font-medium text-industrial-900 line-clamp-2 leading-snug">
+                            {material.description}
                           </div>
-                        )}
-                      </td>
+                          {(material.tagNumber || material.installationLocation || material.tagLocation || material.workOrder || material.woNumber || material.mrfReference || material.mrfNumber || material.mrf) && (
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                              {material.tagNumber && (
+                                <span className="inline-flex items-center gap-1 text-[9px] font-mono font-bold text-purple-700 bg-purple-50 border border-purple-200/90 px-1.5 py-0.5 rounded shadow-2xs" title="Equipment Tag #">
+                                  <Tag className="h-2.5 w-2.5 shrink-0" />
+                                  <span>{material.tagNumber}</span>
+                                </span>
+                              )}
+                              {(material.installationLocation || material.tagLocation) && (
+                                <span className="inline-flex items-center gap-1 text-[9px] font-medium text-indigo-700 bg-indigo-50 border border-indigo-200/90 px-1.5 py-0.5 rounded shadow-2xs" title="موقع التثبيت الميداني الفعلي (مثل مكان تثبيت السلينويد)">
+                                  <MapPin className="h-2.5 w-2.5 shrink-0 text-indigo-500" />
+                                  <span className="max-w-[130px] truncate">{material.installationLocation || material.tagLocation}</span>
+                                </span>
+                              )}
+                              {(material.workOrder || material.woNumber) && (
+                                <span className="inline-flex items-center gap-1 text-[9px] font-mono font-semibold text-amber-800 bg-amber-50 border border-amber-200/90 px-1.5 py-0.5 rounded" title="رقم أمر العمل Work Order #">
+                                  <span>WO: {material.workOrder || material.woNumber}</span>
+                                </span>
+                              )}
+                              {(material.mrfReference || material.mrfNumber || material.mrf) && (
+                                <span className="inline-flex items-center gap-1 text-[9px] font-mono font-semibold text-blue-800 bg-blue-50 border border-blue-200/90 px-1.5 py-0.5 rounded" title="رقم طلب صرف المواد MRF #">
+                                  <span>MRF: {material.mrfReference || material.mrfNumber || material.mrf}</span>
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      )}
 
                       {/* Manufacturer / Model */}
-                      <td className="p-4 whitespace-nowrap">
-                        <span className="font-semibold text-industrial-800 block">{material.manufacturer}</span>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-[10px] font-mono text-industrial-450">{material.model}</span>
-                          {material.oemVerificationStatus === 'verified' && (
-                            <span className="text-[8px] bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold px-1 rounded uppercase tracking-wide">OEM Verified</span>
-                          )}
-                          {material.oemVerificationStatus === 'authorized' && (
-                            <span className="text-[8px] bg-sky-50 text-sky-700 border border-sky-200 font-bold px-1 rounded uppercase tracking-wide">Distributor</span>
-                          )}
-                          {material.oemVerificationStatus === 'alternative' && (
-                            <span className="text-[8px] bg-amber-50 text-amber-700 border border-amber-200 font-bold px-1 rounded uppercase tracking-wide">3rd Party</span>
-                          )}
-                        </div>
-                      </td>
+                      {visibleColumns.manufacturer && (
+                        <td className={`${viewMode === 'dense' ? 'py-1.5 px-3' : 'p-4'} whitespace-nowrap`}>
+                          <span className="font-semibold text-industrial-800 block">{material.manufacturer}</span>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[10px] font-mono text-industrial-450">{material.model}</span>
+                            {material.oemVerificationStatus === 'verified' && (
+                              <span className="text-[8px] bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold px-1 rounded uppercase tracking-wide">OEM Verified</span>
+                            )}
+                            {material.oemVerificationStatus === 'authorized' && (
+                              <span className="text-[8px] bg-sky-50 text-sky-700 border border-sky-200 font-bold px-1 rounded uppercase tracking-wide">Distributor</span>
+                            )}
+                            {material.oemVerificationStatus === 'alternative' && (
+                              <span className="text-[8px] bg-amber-50 text-amber-700 border border-amber-200 font-bold px-1 rounded uppercase tracking-wide">3rd Party</span>
+                            )}
+                          </div>
+                        </td>
+                      )}
 
-                      {/* Quantity */}
-                      <td className="p-4 text-right font-mono font-medium whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-2.5">
-                          {isWritable && (
-                            <button
-                              onClick={() => handleAdjustQuantity(material, -1)}
-                              className="p-1 rounded-md bg-industrial-100 hover:bg-industrial-200 text-industrial-600 transition-colors cursor-pointer"
-                              title="Decrease Quantity by 1"
-                            >
-                              <Minus className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                          <span className="text-sm font-bold text-industrial-900 w-10 text-center">
-                            {material.quantity}
-                          </span>
-                          {isWritable && (
-                            <button
-                              onClick={() => handleAdjustQuantity(material, 1)}
-                              className="p-1 rounded-md bg-industrial-100 hover:bg-industrial-200 text-industrial-600 transition-colors cursor-pointer"
-                              title="Increase Quantity by 1"
-                            >
-                              <Plus className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                          <span className="text-[10px] text-industrial-400 font-mono self-center w-8 text-left">{material.unit}</span>
-                        </div>
-                      </td>
+                      {/* Quantity & Status */}
+                      {visibleColumns.quantity && (
+                        <>
+                          <td className={`${viewMode === 'dense' ? 'py-1.5 px-3' : 'p-4'} text-right font-mono font-medium whitespace-nowrap`}>
+                            <div className="flex items-center justify-end gap-2.5">
+                              {isWritable && (
+                                <button
+                                  onClick={() => handleAdjustQuantity(material, -1)}
+                                  className="p-1 rounded-md bg-industrial-100 hover:bg-industrial-200 text-industrial-600 transition-colors cursor-pointer"
+                                  title="Decrease Quantity by 1"
+                                >
+                                  <Minus className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                              <span className="text-sm font-bold text-industrial-900 w-10 text-center">
+                                {material.quantity}
+                              </span>
+                              {isWritable && (
+                                <button
+                                  onClick={() => handleAdjustQuantity(material, 1)}
+                                  className="p-1 rounded-md bg-industrial-100 hover:bg-industrial-200 text-industrial-600 transition-colors cursor-pointer"
+                                  title="Increase Quantity by 1"
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                              <span className="text-[10px] text-industrial-400 font-mono self-center w-8 text-left">{material.unit}</span>
+                            </div>
+                          </td>
 
-                      {/* Status */}
-                      <td className="p-4 text-center whitespace-nowrap">
-                        {getStockLabel(material)}
-                      </td>
+                          <td className={`${viewMode === 'dense' ? 'py-1.5 px-3' : 'p-4'} text-center whitespace-nowrap`}>
+                            {getStockLabel(material)}
+                          </td>
+                        </>
+                      )}
 
                       {/* Storage Location & Station */}
-                      <td className="p-4 text-industrial-600 whitespace-nowrap">
-                        {material.station && (
-                          <span className="inline-flex items-center gap-1 text-[9.5px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/90 px-1.5 py-0.5 rounded mb-1 block w-fit">
-                            <MapPin className="h-2.5 w-2.5 text-emerald-600 shrink-0" />
-                            <span>{material.station}</span>
-                          </span>
-                        )}
-                        <span className="font-semibold block text-industrial-800">{material.store}</span>
-                        <span className="text-[10px] font-mono text-industrial-500">Rack {material.rack} · Shelf {material.shelf}</span>
-                      </td>
+                      {visibleColumns.store && (
+                        <td className={`${viewMode === 'dense' ? 'py-1.5 px-3' : 'p-4'} text-industrial-600 whitespace-nowrap`}>
+                          {material.station && (
+                            <span className="inline-flex items-center gap-1 text-[9.5px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/90 px-1.5 py-0.5 rounded mb-1 block w-fit">
+                              <MapPin className="h-2.5 w-2.5 text-emerald-600 shrink-0" />
+                              <span>{material.station}</span>
+                            </span>
+                          )}
+                          <span className="font-semibold block text-industrial-800">{material.store}</span>
+                          <span className="text-[10px] font-mono text-industrial-500">Rack {material.rack} · Shelf {material.shelf}</span>
+                        </td>
+                      )}
 
                       {/* Action buttons */}
-                      <td className="p-4 text-right whitespace-nowrap">
+                      {visibleColumns.actions && (
+                        <td className={`${viewMode === 'dense' ? 'py-1.5 px-3' : 'p-4'} text-right whitespace-nowrap`}>
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => {
@@ -2318,8 +2909,9 @@ Your guidelines:
                           })()}
                         </div>
                       </td>
-                    </tr>
-                  ))}
+                    )}
+                  </tr>
+                ))}
                 </tbody>
               </table>
             </div>
@@ -6742,6 +7334,83 @@ Your guidelines:
                 >
                   <Printer className="h-4 w-4" />
                   <span>تأكيد وطباعة السند / Confirm & Print Voucher</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Batch Move Modal */}
+      <AnimatePresence>
+        {showBatchMoveModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-industrial-950/70 backdrop-blur-xs select-none">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl border border-industrial-200 shadow-2xl w-full max-w-md overflow-hidden flex flex-col"
+            >
+              <div className="bg-indigo-700 text-white p-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-indigo-600">
+                    <ArrowRightLeft className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm">نقل المواد المحددة لمخزن آخر</h3>
+                    <p className="text-[11px] text-indigo-200">Reassign Selected Items to Warehouse File</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowBatchMoveModal(false)}
+                  className="p-1 rounded-lg text-indigo-200 hover:text-white hover:bg-indigo-600 transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4 text-xs">
+                <div className="bg-indigo-50 border border-indigo-200/80 rounded-xl p-3 text-indigo-900 space-y-1">
+                  <p className="font-bold">عدد المواد المحددة: {selectedItemIds.length} مواد</p>
+                  <p className="text-[11px] text-indigo-700 leading-relaxed">
+                    سيتم نقل هذه المواد وحفظها تحت ملف المخزن المستهدف مع إعادة ترقيم تسلسلها تلقائياً داخل الملف الجديد وتوثيق النقل في سجل الأحداث.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-industrial-800 block">اختر ملف المخزن المستهدف / Target Warehouse File:</label>
+                  <select
+                    value={batchMoveTargetFileId}
+                    onChange={(e) => setBatchMoveTargetFileId(e.target.value)}
+                    className="w-full bg-industrial-50 border border-industrial-300 text-industrial-900 text-xs px-3.5 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">-- اختر ملف المخزن --</option>
+                    {warehouseFiles.map(file => (
+                      <option key={file.id} value={file.id}>
+                        {file.name} ({file.warehouseName || file.warehouseCode})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="bg-industrial-50 p-3.5 border-t border-industrial-200 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowBatchMoveModal(false)}
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold text-industrial-600 hover:bg-industrial-200/60 transition-colors cursor-pointer"
+                >
+                  إلغاء / Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={!batchMoveTargetFileId}
+                  onClick={() => handleBatchMove(batchMoveTargetFileId)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 disabled:bg-industrial-300 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-xs flex items-center gap-1.5"
+                >
+                  <ArrowRightLeft className="h-3.5 w-3.5" />
+                  <span>تأكيد النقل / Confirm Move</span>
                 </button>
               </div>
             </motion.div>

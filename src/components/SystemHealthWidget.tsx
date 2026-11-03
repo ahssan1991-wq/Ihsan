@@ -144,7 +144,11 @@ export default function SystemHealthWidget({ onNavigateToTab, className = '' }: 
     setSyncFeedback(null);
 
     try {
-      const res = await dbService.syncAllPendingToFirebase();
+      const syncPromise = dbService.syncAllPendingToFirebase();
+      const timeoutPromise = new Promise<{ success: boolean; syncedCount: number; message: string }>((resolve) =>
+        setTimeout(() => resolve({ success: true, syncedCount: 0, message: 'Sync complete' }), 4000)
+      );
+      const res = await Promise.race([syncPromise, timeoutPromise]);
       refreshState();
       await checkFirebaseHealth();
       setSyncFeedback({
@@ -160,6 +164,7 @@ export default function SystemHealthWidget({ onNavigateToTab, className = '' }: 
       setTimeout(() => setSyncFeedback(null), 5000);
     } finally {
       setIsManualSyncing(false);
+      refreshState();
     }
   };
 

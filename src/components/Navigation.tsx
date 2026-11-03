@@ -44,7 +44,9 @@ import {
   SlidersHorizontal,
   Download,
   Plus,
-  Check
+  Check,
+  PanelLeftClose,
+  PanelLeftOpen
 } from 'lucide-react';
 import { User as UserType, UserRole, Material } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -70,62 +72,38 @@ interface NavigationProps {
 
 const getCategoryStyle = (groupId: string) => {
   switch (groupId) {
-    case 'group-dashboard':
+    case 'group-workspace':
       return {
-        badgeBg: 'bg-sky-500/20 text-sky-300 border-sky-500/30',
-        cardBg: 'bg-gradient-to-r from-sky-950/40 via-industrial-900 to-industrial-850 hover:from-sky-900/40 border-sky-500/30 hover:border-sky-400/70',
-        iconBox: 'bg-sky-500/20 text-sky-400 border border-sky-500/40 shadow-sm shadow-sky-500/25',
-        activeGlow: 'ring-1.5 ring-sky-400 border-sky-400 bg-sky-900/45 shadow-lg shadow-sky-500/30',
-        accentText: 'text-sky-300'
+        badgeBg: 'text-sky-300 bg-sky-950/40 border-sky-800/60',
+        cardBg: 'bg-industrial-900 hover:bg-industrial-850 border-industrial-800 hover:border-sky-500/40',
+        iconBox: 'bg-sky-500/10 text-sky-400 border border-sky-500/30',
+        activeGlow: 'border-sky-500 bg-sky-950/40 text-white shadow-xs',
+        accentText: 'text-sky-400'
       };
     case 'group-materials':
       return {
-        badgeBg: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
-        cardBg: 'bg-gradient-to-r from-emerald-950/40 via-industrial-900 to-industrial-850 hover:from-emerald-900/40 border-emerald-500/30 hover:border-emerald-400/70',
-        iconBox: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm shadow-emerald-500/25',
-        activeGlow: 'ring-1.5 ring-emerald-400 border-emerald-400 bg-emerald-900/45 shadow-lg shadow-emerald-500/30',
-        accentText: 'text-emerald-300'
+        badgeBg: 'text-emerald-300 bg-emerald-950/40 border-emerald-800/60',
+        cardBg: 'bg-industrial-900 hover:bg-industrial-850 border-industrial-800 hover:border-emerald-500/40',
+        iconBox: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30',
+        activeGlow: 'border-emerald-500 bg-emerald-950/40 text-white shadow-xs',
+        accentText: 'text-emerald-400'
       };
-    case 'group-search':
+    case 'group-engineering':
       return {
-        badgeBg: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
-        cardBg: 'bg-gradient-to-r from-purple-950/40 via-industrial-900 to-industrial-850 hover:from-purple-900/40 border-purple-500/30 hover:border-purple-400/70',
-        iconBox: 'bg-purple-500/20 text-purple-400 border border-purple-500/40 shadow-sm shadow-purple-500/25',
-        activeGlow: 'ring-1.5 ring-purple-400 border-purple-400 bg-purple-900/45 shadow-lg shadow-purple-500/30',
-        accentText: 'text-purple-300'
+        badgeBg: 'text-amber-300 bg-amber-950/40 border-amber-800/60',
+        cardBg: 'bg-industrial-900 hover:bg-industrial-850 border-industrial-800 hover:border-amber-500/40',
+        iconBox: 'bg-amber-500/10 text-amber-400 border border-amber-500/30',
+        activeGlow: 'border-amber-500 bg-amber-950/40 text-white shadow-xs',
+        accentText: 'text-amber-400'
       };
-    case 'group-ops':
-      return {
-        badgeBg: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-        cardBg: 'bg-gradient-to-r from-amber-950/40 via-industrial-900 to-industrial-850 hover:from-amber-900/40 border-amber-500/30 hover:border-amber-400/70',
-        iconBox: 'bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-sm shadow-amber-500/25',
-        activeGlow: 'ring-1.5 ring-amber-400 border-amber-400 bg-amber-900/45 shadow-lg shadow-amber-500/30',
-        accentText: 'text-amber-300'
-      };
-    case 'group-docs':
-      return {
-        badgeBg: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-        cardBg: 'bg-gradient-to-r from-blue-950/40 via-industrial-900 to-industrial-850 hover:from-blue-900/40 border-blue-500/30 hover:border-blue-400/70',
-        iconBox: 'bg-blue-500/20 text-blue-400 border border-blue-500/40 shadow-sm shadow-blue-500/25',
-        activeGlow: 'ring-1.5 ring-blue-400 border-blue-400 bg-blue-900/45 shadow-lg shadow-blue-500/30',
-        accentText: 'text-blue-300'
-      };
-    case 'group-reports':
-      return {
-        badgeBg: 'bg-teal-500/20 text-teal-300 border-teal-500/30',
-        cardBg: 'bg-gradient-to-r from-teal-950/40 via-industrial-900 to-industrial-850 hover:from-teal-900/40 border-teal-500/30 hover:border-teal-400/70',
-        iconBox: 'bg-teal-500/20 text-teal-400 border border-teal-500/40 shadow-sm shadow-teal-500/25',
-        activeGlow: 'ring-1.5 ring-teal-400 border-teal-400 bg-teal-900/45 shadow-lg shadow-teal-500/30',
-        accentText: 'text-teal-300'
-      };
-    case 'group-admin':
+    case 'group-system':
     default:
       return {
-        badgeBg: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
-        cardBg: 'bg-gradient-to-r from-rose-950/40 via-industrial-900 to-industrial-850 hover:from-rose-900/40 border-rose-500/30 hover:border-rose-400/70',
-        iconBox: 'bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-sm shadow-rose-500/25',
-        activeGlow: 'ring-1.5 ring-rose-400 border-rose-400 bg-rose-900/45 shadow-lg shadow-rose-500/30',
-        accentText: 'text-rose-300'
+        badgeBg: 'text-industrial-300 bg-industrial-800/60 border-industrial-700/60',
+        cardBg: 'bg-industrial-900 hover:bg-industrial-850 border-industrial-800 hover:border-industrial-700',
+        iconBox: 'bg-industrial-800 text-industrial-300 border border-industrial-700',
+        activeGlow: 'border-industrial-500 bg-industrial-800 text-white shadow-xs',
+        accentText: 'text-industrial-300'
       };
   }
 };
@@ -228,6 +206,10 @@ const getToolDescription = (id: string, isAr: boolean) => {
       ar: 'استيراد جماعي ذكي لجداول المواد من ملفات إكسل',
       en: 'Smart bulk ingestion for Excel spreadsheets & CSVs'
     },
+    'warehouse-files': {
+      ar: 'إدارة ملفات Excel المستقلة للمخازن والبحث الموحّد',
+      en: 'Independent warehouse Excel files manager & cross-search'
+    },
     'google-drive': {
       ar: 'المزامنة السحابية للوثائق والتقارير مع Google Drive',
       en: 'Secure cloud syncing of engineering docs with Drive'
@@ -296,6 +278,7 @@ export default function Navigation({
   
   // Accordion state
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
 
   // Global Ctrl+K / Cmd+K listener
   useEffect(() => {
@@ -342,17 +325,14 @@ export default function Navigation({
       window.removeEventListener('emis:sync-status-changed', handleUpdate);
       window.removeEventListener('emis:material-added', handleUpdate);
     };
-  }, [currentUser]);
+  }, [currentUser?.id, currentUser?.role]);
 
-  // Group definitions
+  // Group definitions - 4 Workflow Clusters
   const uniqueGroups = useMemo(() => [
-    { id: 'group-dashboard', titleKey: 'groupCommandCenter', fallback: 'Command Center', ar: 'مركز القيادة والتحكم' },
-    { id: 'group-materials', titleKey: 'groupMaterials', fallback: 'Materials Management', ar: 'إدارة المواد والمخزون' },
-    { id: 'group-search', titleKey: 'groupSearch', fallback: 'Search & Intelligence', ar: 'البحث والاستخبارات الذكية' },
-    { id: 'group-ops', titleKey: 'groupOps', fallback: 'Operations & Engineering', ar: 'العمليات والهندسة' },
-    { id: 'group-docs', titleKey: 'groupDocs', fallback: 'Documents & Import', ar: 'الوثائق والاستيراد' },
-    { id: 'group-reports', titleKey: 'groupReports', fallback: 'Reports & Quality', ar: 'التقارير والجودة' },
-    { id: 'group-admin', titleKey: 'groupAdmin', fallback: 'Administration & Governance', ar: 'الإدارة والحوكمة' }
+    { id: 'group-workspace', titleKey: 'groupWorkspace', fallback: 'Workspace', ar: 'مساحة العمل' },
+    { id: 'group-materials', titleKey: 'groupMaterials', fallback: 'Material Management', ar: 'إدارة المواد والمستودعات' },
+    { id: 'group-engineering', titleKey: 'groupEngineering', fallback: 'Engineering & Inspection', ar: 'الهندسة والفحص الفني' },
+    { id: 'group-system', titleKey: 'groupSystem', fallback: 'Reports & System', ar: 'التقارير وإدارة المنظومة' }
   ], []);
 
   // Filtered navigation items based on user role, category filter, and sidebar search
@@ -418,33 +398,30 @@ export default function Navigation({
     { id: 'search', label: language === 'ar' ? 'البحث' : 'Search', icon: Search },
   ];
 
-  // Quick filter categories with icons
+  // Quick filter categories with icons for 4 Workflow Clusters
   const categoryChips = [
     { id: 'all', label: language === 'ar' ? 'الكل' : 'All', icon: Sparkles },
-    { id: 'group-dashboard', label: language === 'ar' ? 'الرئيسية' : 'Core', icon: LayoutDashboard },
-    { id: 'group-materials', label: language === 'ar' ? 'المواد والمخزون' : 'Materials', icon: Layers },
-    { id: 'group-search', label: language === 'ar' ? 'البحث والذكاء' : 'Search & AI', icon: Search },
-    { id: 'group-ops', label: language === 'ar' ? 'العمليات الفنية' : 'Ops', icon: Activity },
-    { id: 'group-docs', label: language === 'ar' ? 'الوثائق' : 'Docs', icon: FileText },
-    { id: 'group-reports', label: language === 'ar' ? 'الجودة والتقارير' : 'Quality', icon: ShieldCheck },
-    { id: 'group-admin', label: language === 'ar' ? 'الإدارة والحوكمة' : 'Admin', icon: Shield }
+    { id: 'group-workspace', label: language === 'ar' ? 'مساحة العمل' : 'Workspace', icon: LayoutDashboard },
+    { id: 'group-materials', label: language === 'ar' ? 'إدارة المواد' : 'Materials', icon: Layers },
+    { id: 'group-engineering', label: language === 'ar' ? 'الهندسة والفحص' : 'Engineering', icon: Activity },
+    { id: 'group-system', label: language === 'ar' ? 'التقارير والنظام' : 'System', icon: ShieldCheck }
   ];
 
   return (
     <>
       {/* MOBILE TOP HEADER WITH SAFE AREA CLEARANCE (NOTCH & STATUS BAR) */}
-      <header className="lg:hidden bg-industrial-900/98 backdrop-blur-md border-b border-industrial-800 px-3.5 sticky top-0 z-40 text-white select-none mobile-safe-top-header transition-all duration-150">
+      <header className="lg:hidden bg-[#0a101d]/98 backdrop-blur-md border-b border-[#1b263b] px-3.5 sticky top-0 z-40 text-white select-none mobile-safe-top-header transition-all duration-150">
         <div className="h-14 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 shrink-0">
-            <div className="p-1.5 bg-brand-600/20 border border-brand-500/30 rounded-lg">
-              <Cpu className="h-4.5 w-4.5 text-brand-500" />
+            <div className="p-1.5 bg-blue-600/20 border border-blue-500/30 rounded-lg">
+              <Cpu className="h-4.5 w-4.5 text-blue-400" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-bold tracking-tight heading-display text-sm">EMIS</span>
-                <span className="text-[9px] text-brand-400 font-mono px-1.5 py-0.2 rounded bg-brand-500/15 border border-brand-500/30 font-bold">v3.1</span>
+                <span className="text-[9px] text-blue-400 font-mono px-1.5 py-0.5 rounded bg-blue-500/15 border border-blue-500/30 font-bold">v3.2</span>
               </div>
-              <p className="text-[10px] text-industrial-400 font-mono">
+              <p className="text-[10px] text-slate-400 font-mono">
                 {language === 'ar' ? 'نظام إدارة المواد الذكي' : 'Material Intelligence'}
               </p>
             </div>
@@ -461,7 +438,7 @@ export default function Navigation({
             <button
               type="button"
               onClick={() => setIsSettingsOpen(true)}
-              className="p-2 min-h-[38px] min-w-[38px] flex items-center justify-center rounded-lg bg-industrial-800 hover:bg-industrial-750 active:bg-industrial-700 text-industrial-200 border border-industrial-700 transition-colors cursor-pointer"
+              className="p-2 min-h-[38px] min-w-[38px] flex items-center justify-center rounded-lg bg-[#11192a] hover:bg-[#162137] text-slate-200 border border-[#1e2a42] transition-colors cursor-pointer"
               title={language === 'ar' ? 'الإعدادات والملف الشخصي' : 'User Profile & Settings'}
               aria-label="Settings"
             >
@@ -526,40 +503,57 @@ export default function Navigation({
                 </button>
               </div>
 
-              {/* Fast Interactive Action Tiles (4 primary shortcuts) */}
+              {/* Fast Interactive Action Tiles (4 Workflow Cluster Shortcuts) */}
               <div className="px-3 pt-3 pb-2 grid grid-cols-4 gap-2 shrink-0">
+                {/* Cluster 1: Operations */}
                 <button
                   type="button"
-                  onClick={() => handleTabClick('add-material')}
+                  onClick={() => handleTabClick('materials')}
                   className="flex flex-col items-center justify-center p-2 rounded-2xl bg-gradient-to-b from-emerald-500/15 to-emerald-950/20 border border-emerald-500/30 hover:border-emerald-400/60 active:scale-95 transition-all cursor-pointer group"
                 >
                   <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 mb-1 group-hover:scale-110 transition-transform">
-                    <PlusCircle className="h-4 w-4" />
+                    <Layers className="h-4 w-4" />
                   </div>
                   <span className="text-[10px] font-bold text-emerald-200 text-center leading-tight">
-                    {language === 'ar' ? 'إضافة مادة' : 'New Part'}
+                    {language === 'ar' ? 'العمليات' : 'Operations'}
                   </span>
                 </button>
 
+                {/* Cluster 2: Engineering */}
+                <button
+                  type="button"
+                  onClick={() => handleTabClick('equipment')}
+                  className="flex flex-col items-center justify-center p-2 rounded-2xl bg-gradient-to-b from-amber-500/15 to-amber-950/20 border border-amber-500/30 hover:border-amber-400/60 active:scale-95 transition-all cursor-pointer group"
+                >
+                  <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 mb-1 group-hover:scale-110 transition-transform">
+                    <Warehouse className="h-4 w-4" />
+                  </div>
+                  <span className="text-[10px] font-bold text-amber-200 text-center leading-tight">
+                    {language === 'ar' ? 'الهندسة' : 'Engineering'}
+                  </span>
+                </button>
+
+                {/* Cluster 3: Quality Control */}
                 <button
                   type="button"
                   onClick={() => handleTabClick('search')}
-                  className="flex flex-col items-center justify-center p-2 rounded-2xl bg-gradient-to-b from-brand-500/15 to-brand-950/20 border border-brand-500/30 hover:border-brand-400/60 active:scale-95 transition-all cursor-pointer group"
+                  className="flex flex-col items-center justify-center p-2 rounded-2xl bg-gradient-to-b from-purple-500/15 to-purple-950/20 border border-purple-500/30 hover:border-purple-400/60 active:scale-95 transition-all cursor-pointer group"
                 >
-                  <div className="p-2 rounded-xl bg-brand-500/20 text-brand-400 mb-1 group-hover:scale-110 transition-transform">
+                  <div className="p-2 rounded-xl bg-purple-500/20 text-purple-400 mb-1 group-hover:scale-110 transition-transform">
                     <Search className="h-4 w-4" />
                   </div>
-                  <span className="text-[10px] font-bold text-brand-200 text-center leading-tight">
-                    {language === 'ar' ? 'البحث الذكي' : 'AI Search'}
+                  <span className="text-[10px] font-bold text-purple-200 text-center leading-tight">
+                    {language === 'ar' ? 'الجودة والفحص' : 'QC & Scan'}
                   </span>
                 </button>
 
+                {/* Cluster 4: Administration */}
                 <button
                   type="button"
                   onClick={() => handleTabClick('action-center')}
-                  className="relative flex flex-col items-center justify-center p-2 rounded-2xl bg-gradient-to-b from-amber-500/15 to-amber-950/20 border border-amber-500/30 hover:border-amber-400/60 active:scale-95 transition-all cursor-pointer group"
+                  className="relative flex flex-col items-center justify-center p-2 rounded-2xl bg-gradient-to-b from-sky-500/15 to-sky-950/20 border border-sky-500/30 hover:border-sky-400/60 active:scale-95 transition-all cursor-pointer group"
                 >
-                  <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 mb-1 group-hover:scale-110 transition-transform">
+                  <div className="p-2 rounded-xl bg-sky-500/20 text-sky-400 mb-1 group-hover:scale-110 transition-transform">
                     <BellRing className="h-4 w-4" />
                   </div>
                   {actionItemCount > 0 && (
@@ -567,21 +561,8 @@ export default function Navigation({
                       {actionItemCount}
                     </span>
                   )}
-                  <span className="text-[10px] font-bold text-amber-200 text-center leading-tight">
-                    {language === 'ar' ? 'الإجراءات' : 'Actions'}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleTabClick('materials')}
-                  className="flex flex-col items-center justify-center p-2 rounded-2xl bg-gradient-to-b from-cyan-500/15 to-cyan-950/20 border border-cyan-500/30 hover:border-cyan-400/60 active:scale-95 transition-all cursor-pointer group"
-                >
-                  <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400 mb-1 group-hover:scale-110 transition-transform">
-                    <Layers className="h-4 w-4" />
-                  </div>
-                  <span className="text-[10px] font-bold text-cyan-200 text-center leading-tight">
-                    {language === 'ar' ? 'المستودع' : 'Stock'}
+                  <span className="text-[10px] font-bold text-sky-200 text-center leading-tight">
+                    {language === 'ar' ? 'الإدارة' : 'Admin'}
                   </span>
                 </button>
               </div>
@@ -870,147 +851,100 @@ export default function Navigation({
 
       {/* DESKTOP SIDEBAR */}
       <aside 
-        className="hidden lg:flex flex-col w-64 bg-industrial-900 border-r border-industrial-800 h-screen sticky top-0 shrink-0 text-white select-none transition-all duration-200"
+        className={`hidden lg:flex flex-col bg-[#0a101d] border-r border-[#1b263b] h-screen sticky top-0 shrink-0 text-slate-100 select-none transition-all duration-200 z-30 ${
+          isSidebarCollapsed ? 'w-[72px]' : 'w-64'
+        }`}
         dir={isRTL ? 'rtl' : 'ltr'}
       >
         {/* Top Brand Header */}
-        <div className="p-3.5 border-b border-industrial-800 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-brand-600/15 border border-brand-500/30 rounded-xl shadow-inner">
-              <Cpu className="h-5 w-5 text-brand-500" />
+        <div className={`p-4 border-b border-[#1b263b] flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-9 w-9 bg-blue-600/20 border border-blue-500/40 rounded-xl flex items-center justify-center shadow-xs shrink-0 text-blue-400 font-mono font-black text-sm">
+              <Cpu className="h-5 w-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <h1 className="font-bold tracking-tight text-base heading-display text-white">EMIS</h1>
-                <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-brand-500/20 text-brand-400 border border-brand-500/30">
-                  v3.1
-                </span>
+            {!isSidebarCollapsed && (
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h1 className="font-extrabold tracking-tight text-base text-white">EMIS</h1>
+                  <span className="text-[10px] font-mono font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.2 rounded border border-blue-500/20">
+                    v3.2
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 truncate">
+                  {language === 'ar' ? 'نظام إدارة المواد والمستودعات' : 'ENGINEERING ASSET SYSTEM'}
+                </p>
               </div>
-              <p className="text-[10px] text-industrial-400 font-mono tracking-wider">
-                {language === 'ar' ? 'نظام إدارة المواد' : 'MATERIAL INTELLIGENCE'}
-              </p>
-            </div>
+            )}
           </div>
-          <NetworkStatusIndicator
-            idPrefix="desktop-sidebar-nav"
-            onNavigateToSync={() => setActiveTab('backup-sync')}
-          />
+
+          <button
+            type="button"
+            onClick={() => setIsSidebarCollapsed(prev => !prev)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors cursor-pointer"
+            title={isSidebarCollapsed 
+              ? (language === 'ar' ? 'توسيع القائمة' : 'Expand Sidebar') 
+              : (language === 'ar' ? 'طي القائمة' : 'Collapse Sidebar')}
+          >
+            {isSidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </button>
         </div>
 
         {/* Quick Command Launcher (Ctrl+K) */}
-        <div className="px-3 pt-3 pb-2 space-y-2 border-b border-industrial-800/80">
-          <button
-            type="button"
-            onClick={() => setIsQuickSwitcherOpen(true)}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-industrial-850 hover:bg-industrial-800 border border-industrial-750 hover:border-brand-500/40 text-industrial-300 hover:text-white text-xs font-medium transition-all group cursor-pointer shadow-2xs"
-            title="Press Ctrl+K to jump anywhere"
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              <Search className="h-3.5 w-3.5 text-brand-400 group-hover:scale-110 transition-transform" />
-              <span className="truncate">{language === 'ar' ? 'التنقل السريع بين القوائم...' : 'Jump to any screen...'}</span>
-            </div>
-            <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-industrial-800 group-hover:bg-brand-600/30 text-industrial-400 group-hover:text-brand-300 border border-industrial-700 transition-colors">
-              Ctrl+K
-            </kbd>
-          </button>
-
-          {/* Action Center & Notification Bar */}
-          <div className="flex items-center gap-2">
+        {!isSidebarCollapsed ? (
+          <div className="p-3 border-b border-[#1b263b]/80 space-y-2">
             <button
-              onClick={() => handleTabClick('action-center')}
-              className={`flex-1 flex items-center justify-between px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
-                activeTab === 'action-center'
-                  ? 'bg-amber-500/20 border-amber-500 text-amber-300'
-                  : 'bg-industrial-850 hover:bg-industrial-800 border-industrial-750 text-industrial-300 hover:text-white'
-              }`}
+              type="button"
+              onClick={() => setIsQuickSwitcherOpen(true)}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-[#11192a] hover:bg-[#162137] border border-[#202f4a] hover:border-blue-500/50 text-slate-300 hover:text-white text-xs font-medium transition-all group cursor-pointer shadow-xs"
+              title="Press Ctrl+K or ⌘K to open command palette"
             >
-              <div className="flex items-center gap-1.5">
-                <BellRing className="h-3.5 w-3.5 text-amber-400" />
-                <span className="truncate">{language === 'ar' ? 'الإجراءات' : 'Action Center'}</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <Search className="h-3.5 w-3.5 text-blue-400 group-hover:scale-105 transition-transform" />
+                <span className="truncate">{language === 'ar' ? 'لوحة الأوامر والتنقل السريع...' : 'Command Palette...'}</span>
               </div>
-              {actionItemCount > 0 && (
-                <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-rose-500 text-white">
-                  {actionItemCount}
-                </span>
-              )}
+              <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 group-hover:text-blue-300 border border-slate-700 transition-colors">
+                ⌘K
+              </kbd>
             </button>
-
-            {/* Notification Bell */}
+          </div>
+        ) : (
+          <div className="p-2 border-b border-[#1b263b] flex flex-col items-center gap-2">
             <button
-              onClick={() => setIsNotifCenterOpen(true)}
-              className="relative p-2 rounded-xl bg-industrial-850 hover:bg-industrial-800 text-industrial-300 hover:text-white border border-industrial-750 transition-colors cursor-pointer shrink-0"
-              title="Notification Center"
-              id="desktop-bell-btn"
+              type="button"
+              onClick={() => setIsQuickSwitcherOpen(true)}
+              className="p-2.5 rounded-xl bg-[#11192a] hover:bg-[#162137] text-blue-400 border border-[#202f4a] hover:border-blue-500/50 transition-colors cursor-pointer"
+              title="Command Palette (Ctrl+K)"
             >
-              <Bell className="h-3.5 w-3.5" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-500 text-white font-bold text-[8px] rounded-full flex items-center justify-center border border-industrial-900 animate-pulse">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
+              <Search className="h-4 w-4" />
             </button>
           </div>
-
-          {/* Category Filter Chips in Desktop Sidebar */}
-          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pt-1">
-            {categoryChips.map(cat => {
-              const isSel = selectedCategory === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setSelectedCategory(cat.id)}
-                  className={`px-2 py-0.8 text-[10px] font-semibold rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
-                    isSel 
-                      ? 'bg-brand-600 text-white font-bold shadow-2xs' 
-                      : 'bg-industrial-800/80 text-industrial-400 hover:text-industrial-200 hover:bg-industrial-750'
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Quick Menu Filter Input */}
-          <div className="relative flex items-center pt-0.5">
-            <input
-              type="text"
-              value={sidebarSearch}
-              onChange={(e) => setSidebarSearch(e.target.value)}
-              placeholder={language === 'ar' ? 'تصفية القوائم الحالية...' : 'Filter navigation list...'}
-              className={`w-full py-1.2 ${isRTL ? 'pr-7 pl-7' : 'pl-7 pr-7'} bg-industrial-950/60 border border-industrial-800 rounded-lg text-[11px] text-white placeholder-industrial-400 focus:outline-hidden focus:border-brand-500/50 transition-all`}
-            />
-            <Search className={`absolute ${isRTL ? 'right-2' : 'left-2'} h-3 w-3 text-industrial-400`} />
-            {sidebarSearch && (
-              <button
-                type="button"
-                onClick={() => setSidebarSearch('')}
-                className={`absolute ${isRTL ? 'left-2' : 'right-2'} text-industrial-400 hover:text-white`}
-              >
-                <X className="h-3 w-3" />
-              </button>
-            )}
-          </div>
-        </div>
+        )}
 
         {/* Grouped Sidebar Navigation Items */}
-        <div className="flex-1 px-2.5 space-y-3 overflow-y-auto py-2.5">
-          {visibleGroups.map(group => {
+        <div className="flex-1 px-2.5 space-y-4 overflow-y-auto py-3 no-scrollbar">
+          {visibleGroups.map((group, groupIdx) => {
             const isCollapsed = collapsedGroups[group.id];
             const groupTitle = language === 'ar' ? group.ar : (t(group.titleKey as any) || group.fallback);
+            const groupPrefix = `0${groupIdx + 1}.`;
 
             return (
-              <div key={group.id} className="space-y-0.5">
-                <button
-                  onClick={() => toggleGroupCollapse(group.id)}
-                  className="w-full flex items-center justify-between px-2 py-1 text-[10px] uppercase font-mono tracking-wider text-industrial-400 hover:text-industrial-200 cursor-pointer font-bold select-none rounded-lg hover:bg-industrial-850/60 transition-colors"
-                >
-                  <span>{groupTitle}</span>
-                  <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${isCollapsed ? '-rotate-90 text-industrial-600' : ''}`} />
-                </button>
+              <div key={group.id} className="space-y-1">
+                {!isSidebarCollapsed ? (
+                  <button
+                    onClick={() => toggleGroupCollapse(group.id)}
+                    className="w-full flex items-center justify-between px-2 py-1 text-[11px] font-mono text-slate-400 hover:text-slate-200 cursor-pointer font-semibold select-none rounded-lg hover:bg-slate-800/40 transition-colors tracking-wide"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-blue-500/70 text-[10px]">{groupPrefix}</span>
+                      <span>{groupTitle}</span>
+                    </span>
+                    <ChevronDown className={`h-3 w-3 text-slate-500 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
+                  </button>
+                ) : (
+                  <div className="w-full h-px bg-[#1b263b] my-1" />
+                )}
 
-                {!isCollapsed && (
+                {(!isCollapsed || isSidebarCollapsed) && (
                   <div className="space-y-0.5">
                     {group.items.map(item => {
                       const Icon = item.icon;
@@ -1021,27 +955,17 @@ export default function Navigation({
                         <button
                           key={item.id}
                           onClick={() => setActiveTab(item.id)}
-                          className={`w-full flex items-center justify-between px-2.5 py-1.8 rounded-xl text-xs font-medium transition-all duration-150 cursor-pointer ${
+                          title={isSidebarCollapsed ? itemTitle : undefined}
+                          className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2'} rounded-xl text-xs transition-all duration-150 cursor-pointer relative ${
                             isSelected 
-                              ? 'bg-brand-600 text-white shadow-xs font-bold' 
-                              : 'text-industrial-300 hover:text-white hover:bg-industrial-850'
+                              ? `bg-blue-600/15 text-white font-semibold ${isRTL ? 'border-r-2 border-blue-500' : 'border-l-2 border-blue-500'} shadow-xs` 
+                              : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/40 font-medium'
                           }`}
                         >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <Icon className={`h-3.5 w-3.5 shrink-0 ${isSelected ? 'text-white' : 'text-industrial-400'}`} />
-                            <span className="truncate">{itemTitle}</span>
+                          <div className={`flex items-center gap-2.5 min-w-0 ${isSidebarCollapsed ? 'justify-center' : ''}`}>
+                            <Icon className={`h-4 w-4 shrink-0 transition-colors ${isSelected ? 'text-blue-400' : 'text-slate-400'}`} />
+                            {!isSidebarCollapsed && <span className="truncate">{itemTitle}</span>}
                           </div>
-                          {item.badge && (
-                            <span className={`text-[8px] font-mono uppercase px-1.5 py-0.2 rounded font-bold shrink-0 ${
-                              isSelected 
-                                ? 'bg-white/20 text-white' 
-                                : item.id === 'action-center'
-                                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                                : 'bg-brand-500/20 text-brand-400 border border-brand-500/30'
-                            }`}>
-                              {item.badge}
-                            </span>
-                          )}
                         </button>
                       );
                     })}
@@ -1050,60 +974,72 @@ export default function Navigation({
               </div>
             );
           })}
-
-          {visibleGroups.length === 0 && (
-            <div className="py-6 text-center text-industrial-400 text-xs">
-              <p>{language === 'ar' ? 'لا توجد قوائم مطابقة لبحثك' : 'No menus match your filter'}</p>
-              <button
-                type="button"
-                onClick={() => { setSidebarSearch(''); setSelectedCategory('all'); }}
-                className="mt-2 text-brand-400 hover:underline text-[11px] cursor-pointer"
-              >
-                {language === 'ar' ? 'إعادة ضبط التصفية' : 'Reset filters'}
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Bottom Actions & User Profile */}
-        <div className="p-3 border-t border-industrial-800 space-y-2">
-          {onOpenWhatsNew && (
-            <button
-              onClick={onOpenWhatsNew}
-              className="w-full flex items-center justify-between px-2.5 py-1.5 bg-brand-950/20 hover:bg-brand-950/40 border border-brand-500/30 text-brand-300 text-xs font-medium rounded-xl transition-all cursor-pointer"
-            >
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-3.5 w-3.5 text-brand-400" />
-                <span>{language === 'ar' ? 'ما الجديد في النظام' : "What's New in v3.1"}</span>
+        <div className="p-3 border-t border-[#1b263b] space-y-2">
+          {!isSidebarCollapsed ? (
+            <>
+              {onOpenWhatsNew && (
+                <button
+                  type="button"
+                  onClick={onOpenWhatsNew}
+                  className="w-full flex items-center justify-between px-2.5 py-1.5 bg-[#11192a] hover:bg-[#162137] border border-[#1e2a42] text-slate-300 text-xs font-medium rounded-xl transition-all cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-3.5 w-3.5 text-blue-400" />
+                    <span>{language === 'ar' ? 'ما الجديد في النظام' : "What's New in v3.2"}</span>
+                  </div>
+                  <ChevronRight className={`h-3.5 w-3.5 text-slate-400 ${isRTL ? 'rotate-180' : ''}`} />
+                </button>
+              )}
+              {/* User Settings & Profile Button */}
+              <div className="p-2.5 bg-[#11192a] border border-[#1e2a42] rounded-xl flex items-center justify-between">
+                <div className="flex items-center gap-2.5 truncate">
+                  <div className="h-7 w-7 rounded-lg bg-blue-600 flex items-center justify-center text-white text-[11px] font-bold shrink-0 shadow-xs">
+                    {currentUser.name.split(' ').map(n => n[0]).join('')}
+                  </div>
+                  <div className="text-start truncate">
+                    <p className="font-semibold text-xs text-white truncate leading-tight">{currentUser.name}</p>
+                    <span className="text-[10px] text-blue-400 font-mono">{currentUser.role}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => setIsSettingsOpen(true)}
+                    className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                    title={language === 'ar' ? 'الإعدادات' : 'Settings'}
+                  >
+                    <Settings className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={onLogout}
+                    className="p-1 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-950/30 transition-colors cursor-pointer"
+                    title={language === 'ar' ? 'إنهاء الجلسة' : 'Disconnect'}
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
-              <ChevronRight className={`h-3.5 w-3.5 text-brand-400 ${isRTL ? 'rotate-180' : ''}`} />
-            </button>
-          )}
-
-          {/* User Settings & Language Button */}
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="w-full flex items-center justify-between px-2.5 py-1.5 bg-industrial-850 hover:bg-industrial-800 border border-industrial-750 text-white text-xs font-medium rounded-xl transition-all cursor-pointer"
-          >
-            <div className="flex items-center gap-2 truncate">
-              <div className="h-6 w-6 rounded-lg bg-brand-600 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+            </>
+          ) : (
+            <div className="flex flex-col items-center gap-2">
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center text-white text-[11px] font-bold cursor-pointer shadow-xs"
+                title={`${currentUser.name} (${currentUser.role})`}
+              >
                 {currentUser.name.split(' ').map(n => n[0]).join('')}
-              </div>
-              <div className="text-left truncate">
-                <p className="font-semibold text-xs truncate leading-tight">{currentUser.name}</p>
-                <span className="text-[9px] text-industrial-400 font-mono uppercase">{currentUser.role}</span>
-              </div>
+              </button>
+              <button
+                onClick={onLogout}
+                className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors cursor-pointer"
+                title={language === 'ar' ? 'إنهاء الجلسة' : 'Disconnect'}
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
             </div>
-            <Settings className="h-3.5 w-3.5 text-industrial-400 shrink-0" />
-          </button>
-
-          <button
-            onClick={onLogout}
-            className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-red-950/10 hover:bg-red-950/30 border border-red-500/10 text-red-400 text-xs font-medium rounded-xl transition-all cursor-pointer"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-            <span>{language === 'ar' ? 'إنهاء الجلسة' : 'Disconnect Session'}</span>
-          </button>
+          )}
         </div>
       </aside>
 

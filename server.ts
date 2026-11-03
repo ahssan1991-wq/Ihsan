@@ -16,6 +16,7 @@ function readDb() {
     return {
       initialized: false,
       materials: [],
+      warehouse_files: [],
       equipment: [],
       blacklist: [],
       feedback: [],
@@ -28,12 +29,16 @@ function readDb() {
     if (data && data.initialized === undefined) {
       data.initialized = true;
     }
+    if (data && !Array.isArray(data.warehouse_files)) {
+      data.warehouse_files = [];
+    }
     return data;
   } catch (e) {
     console.error("Failed to read DB file, resetting:", e);
     return {
       initialized: false,
       materials: [],
+      warehouse_files: [],
       equipment: [],
       blacklist: [],
       feedback: [],
@@ -54,7 +59,9 @@ function writeDb(data: any) {
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const cliPortIdx = process.argv.indexOf("--port");
+  const cliPort = cliPortIdx !== -1 && process.argv[cliPortIdx + 1] ? parseInt(process.argv[cliPortIdx + 1], 10) : undefined;
+  const PORT = cliPort || (process.env.PORT ? parseInt(process.env.PORT, 10) : 3000);
 
   // CORS middleware to support Android WebView, Capacitor, and remote origins
   app.use((req, res, next) => {
@@ -337,7 +344,21 @@ async function startServer() {
       }
 
       const db = readDb();
-      if (collection in db || ["materials", "equipment", "blacklist", "feedback", "decisions", "activities"].includes(collection)) {
+      const allowedCollections = [
+        "materials",
+        "warehouse_files",
+        "equipment",
+        "blacklist",
+        "feedback",
+        "decisions",
+        "activities",
+        "external_files",
+        "external_materials",
+        "documents",
+        "sites",
+        "warehouses"
+      ];
+      if (collection in db || allowedCollections.includes(collection)) {
         db[collection] = items;
         writeDb(db);
         res.json({ success: true, count: items.length });
@@ -377,12 +398,14 @@ async function startServer() {
         return res.status(500).json({ error: "Gemini API key is not configured in environment variables." });
       }
 
-      // Remove prefix like "data:image/png;base64," if present
-      const base64Data = imageBase64.replace(/^data:image\/[a-z]+;base64,/, "");
+      // Extract MIME type and clean base64 data safely
+      const mimeMatch = imageBase64.match(/^data:([a-zA-Z0-9.+/-]+);base64,/i);
+      const mimeType = (mimeMatch && mimeMatch[1] && mimeMatch[1].startsWith("image/")) ? mimeMatch[1] : "image/jpeg";
+      const base64Data = imageBase64.replace(/^data:[^;]+;base64,\s*/i, "").trim();
 
       const imagePart = {
         inlineData: {
-          mimeType: "image/jpeg", // default to jpeg
+          mimeType,
           data: base64Data,
         }
       };
@@ -482,7 +505,19 @@ Required fields to analyze:
         .replace(/\s*```$/i, '')
         .trim();
 
-      const parsedData = JSON.parse(cleanJson);
+      let parsedData: any = {};
+      try {
+        parsedData = JSON.parse(cleanJson);
+      } catch (jsonErr) {
+        const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            parsedData = JSON.parse(jsonMatch[0]);
+          } catch (e2) {
+            console.error("Failed to parse matched JSON substring:", e2);
+          }
+        }
+      }
 
       // Normalize all expected fields to always return { value, confidence }
       const expectedKeys = [
@@ -3686,9 +3721,23 @@ Admin Notification Recipient: ${recipient}
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
+  });
+
+  server.on("error", (err: any) => {
+    console.error(`[Server Error] Port ${PORT}:`, err?.message || err);
   });
 }
 
-startServer();
+process.on("uncaughtException", (err) => {
+  console.error("[Server UncaughtException]", err);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[Server UnhandledRejection]", reason);
+});
+
+startServer().catch((err) => {
+  console.error("[Server Start Fatal Error]", err);
+});

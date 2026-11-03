@@ -26,12 +26,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (savedTheme === 'light' || savedTheme === 'dark') {
         return savedTheme;
       }
-      // Check system preference if no stored value exists
-      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        return 'dark';
-      }
     }
-    return 'light';
+    // Default to sophisticated dark navy and graphite industrial foundation
+    return 'dark';
   });
 
   const isDark = theme === 'dark';

@@ -545,9 +545,36 @@ export function formatPartNumberDisplay(partNumber?: string | null, fallback: st
   return partNumber;
 }
 
+// --- EMIS INDEPENDENT WAREHOUSE / EXCEL FILE REGISTRY ---
+export interface WarehouseFile {
+  id: string; // Unique persistent identifier (UUID)
+  name: string; // Friendly name (e.g. "NDGS Instrument Materials", "Maintenance Warehouse")
+  fileName: string; // Original uploaded Excel/CSV file name
+  warehouseCode?: string; // Store / warehouse identifier code
+  warehouseName?: string; // Associated warehouse facility name
+  description?: string; // Notes / description of the store or batch
+  totalRecords: number; // Count of records in this file
+  currentMaxSequence: number; // Current highest sequence number in this file
+  sequencePrefix?: string; // Optional prefix for sequences (e.g. "NDGS-")
+  checksum?: string; // File hash or signature to detect duplicates
+  fileSize?: number; // Size in bytes
+  sheetName?: string; // Name of sheet imported
+  columnMapping?: Record<string, string>; // Preserved original column mapping
+  originalHeaders?: string[]; // Preserved original header names
+  createdAt: string; // Creation timestamp ISO
+  updatedAt: string; // Last updated timestamp ISO
+  createdBy?: string; // User who imported or created the file
+  status: 'ACTIVE' | 'ARCHIVED';
+  tags?: string[];
+}
+
 export interface Material {
   id?: string;
   name?: string; // Material title / name alias
+  fileId?: string; // Linked independent WarehouseFile ID
+  fileName?: string; // Linked file name (for display without joins)
+  fileSequence?: number; // Sequence number specific to this warehouse file
+  rawOriginalRow?: Record<string, any>; // 100% complete preserved original Excel row columns
   partNumber: string; // Unique primary identifier
   description: string;
   arabicDescription?: string; // Port 9: Multilingual Arabic technical translation

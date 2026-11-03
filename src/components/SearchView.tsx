@@ -45,7 +45,8 @@ import {
   ExternalLink,
   Link2,
   Copy,
-  ArrowUpRight
+  ArrowUpRight,
+  FolderKanban
 } from 'lucide-react';
 import { 
   Material, 
@@ -56,7 +57,8 @@ import {
   EngineeringDecision,
   ExternalMaterial,
   UnifiedSearchResult,
-  UnifiedSearchResultSource
+  UnifiedSearchResultSource,
+  WarehouseFile
 } from '../types';
 import NameplateScanner from './NameplateScanner';
 import SearchHistoryBar from './SearchHistoryBar';
@@ -75,7 +77,31 @@ interface SearchViewProps {
 }
 
 export default function SearchView({ materials: rawMaterials = [], currentUser, onInspectMaterial, onNavigateToTab, initialQuery }: SearchViewProps) {
-  const materials = Array.isArray(rawMaterials) && rawMaterials.length > 0 ? rawMaterials : (dbService.getMaterials() || []);
+  const [internalMaterials, setInternalMaterials] = useState<Material[]>(() => {
+    return Array.isArray(rawMaterials) && rawMaterials.length > 0 ? rawMaterials : (dbService.getMaterials() || []);
+  });
+
+  useEffect(() => {
+    if (Array.isArray(rawMaterials) && rawMaterials.length > 0) {
+      setInternalMaterials(rawMaterials);
+    }
+  }, [rawMaterials]);
+
+  useEffect(() => {
+    const handleRefresh = () => {
+      setInternalMaterials(dbService.getMaterials());
+    };
+    window.addEventListener('emis:materials-changed', handleRefresh);
+    window.addEventListener('emis:material-added', handleRefresh);
+    window.addEventListener('emis:material-deleted', handleRefresh);
+    return () => {
+      window.removeEventListener('emis:materials-changed', handleRefresh);
+      window.removeEventListener('emis:material-added', handleRefresh);
+      window.removeEventListener('emis:material-deleted', handleRefresh);
+    };
+  }, []);
+
+  const materials = internalMaterials;
   // Universal Instant Search Input
   const [universalQuery, setUniversalQuery] = useState(initialQuery || '');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -84,12 +110,28 @@ export default function SearchView({ materials: rawMaterials = [], currentUser, 
   // Sync initial query if updated from parent navigation
   useEffect(() => {
     if (initialQuery !== undefined && initialQuery !== null) {
-      setUniversalQuery(initialQuery);
+      setUniversalQuery(prev => prev === initialQuery ? prev : initialQuery);
     }
   }, [initialQuery]);
 
   // Source Filter Scope
   const [sourceScope, setSourceScope] = useState<'ALL' | 'STATION' | 'EXTERNAL' | 'EQUIPMENT' | 'MRF_WO'>('ALL');
+
+  // Warehouse File Scope Filter (NDGS, Maintenance, Received, etc.)
+  const [selectedFileId, setSelectedFileId] = useState<string>('ALL');
+  const [warehouseFiles, setWarehouseFiles] = useState<WarehouseFile[]>(() => dbService.getWarehouseFiles());
+
+  useEffect(() => {
+    const handleFilesChange = () => setWarehouseFiles(dbService.getWarehouseFiles());
+    window.addEventListener('emis:warehouse-files-changed', handleFilesChange);
+    return () => window.removeEventListener('emis:warehouse-files-changed', handleFilesChange);
+  }, []);
+
+  const fileMap = React.useMemo(() => {
+    const map = new Map<string, WarehouseFile>();
+    warehouseFiles.forEach(f => map.set(f.id, f));
+    return map;
+  }, [warehouseFiles]);
 
   // Quick Filter Category
   const [quickFilter, setQuickFilter] = useState<'all' | 'low' | 'out' | 'oem' | 'incomplete'>('all');
@@ -153,6 +195,7 @@ export default function SearchView({ materials: rawMaterials = [], currentUser, 
 
   const handleResetFilters = () => {
     setUniversalQuery('');
+    setSelectedFileId('ALL');
     setQuickFilter('all');
     setSeqQuery('');
     setPartQuery('');
@@ -586,8 +629,13 @@ export default function SearchView({ materials: rawMaterials = [], currentUser, 
       }
     }
 
+    // Apply specific warehouse file filter if selected
+    if (selectedFileId && selectedFileId !== 'ALL') {
+      ranked = ranked.filter(r => (r.material.fileId || 'wh-file-ndgs-master') === selectedFileId);
+    }
+
     return ranked;
-  }, [universalQuery, quickFilter, seqQuery, partQuery, descQuery, mfgQuery, modelQuery, minQty, maxQty, materials]);
+  }, [universalQuery, selectedFileId, quickFilter, seqQuery, partQuery, descQuery, mfgQuery, modelQuery, minQty, maxQty, materials]);
 
   const matchedMaterials = searchResults.map(r => r.material);
 
@@ -829,6 +877,50 @@ export default function SearchView({ materials: rawMaterials = [], currentUser, 
             <span>طلبات وأوامر العمل</span>
             <span className="hidden sm:inline text-[10px] opacity-75">/ MR & WO</span>
           </button>
+        </div>
+
+        {/* Warehouse File Scope Selector (NDGS, Maintenance, Received, Custom Files) */}
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-industrial-100">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-industrial-700 shrink-0">
+            <FolderKanban className="h-4 w-4 text-indigo-600" />
+            <span>ملف المخزن / Warehouse File:</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth">
+            <button
+              type="button"
+              onClick={() => setSelectedFileId('ALL')}
+              className={`text-xs px-2.5 py-1 rounded-lg border transition-all cursor-pointer font-medium ${
+                selectedFileId === 'ALL'
+                  ? 'bg-indigo-600 text-white border-indigo-700 font-bold shadow-2xs'
+                  : 'bg-industrial-50 text-industrial-700 border-industrial-200 hover:bg-industrial-100'
+              }`}
+            >
+              جميع ملفات المخازن ({materials.length})
+            </button>
+            {warehouseFiles.map(file => {
+              const fileCount = materials.filter(m => (m.fileId || 'wh-file-ndgs-master') === file.id).length;
+              return (
+                <button
+                  key={file.id}
+                  type="button"
+                  onClick={() => setSelectedFileId(file.id)}
+                  className={`text-xs px-2.5 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
+                    selectedFileId === file.id
+                      ? 'bg-indigo-600 text-white border-indigo-700 font-bold shadow-2xs'
+                      : 'bg-white text-industrial-700 border-industrial-200 hover:bg-industrial-50'
+                  }`}
+                  title={`${file.name} - ${file.warehouseName || file.warehouseCode}`}
+                >
+                  <span>{file.name}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                    selectedFileId === file.id ? 'bg-indigo-800 text-indigo-100' : 'bg-industrial-100 text-industrial-600'
+                  }`}>
+                    {fileCount}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Quick Filter Categories Chips */}
@@ -1477,9 +1569,23 @@ export default function SearchView({ materials: rawMaterials = [], currentUser, 
                             </span>
                           )}
 
-                          {/* Match Category / Sequence */}
-                          <div className="flex items-center gap-1.5">
-                            {item.originalSequence !== undefined && (
+                          {/* Match Category / Sequence & Warehouse File */}
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {isStation && (
+                              <span 
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800"
+                                title={`ملف المخزن الأصلي: ${fileMap.get((item.rawData as any)?.fileId || '')?.name || (item.rawData as any)?.fileName || 'NDGS Instrument Materials'}`}
+                              >
+                                <FolderKanban className="h-3 w-3 text-indigo-500 shrink-0" />
+                                <span className="truncate max-w-[120px]">
+                                  {fileMap.get((item.rawData as any)?.fileId || '')?.name || (item.rawData as any)?.fileName || 'NDGS Instrument Materials'}
+                                </span>
+                                <span className="font-mono text-indigo-600 dark:text-indigo-400">
+                                  #{(item.rawData as any)?.fileSequence ?? (item.rawData as any)?.sequence ?? item.originalSequence}
+                                </span>
+                              </span>
+                            )}
+                            {item.originalSequence !== undefined && !isStation && (
                               <span className="text-[10px] font-mono font-black text-industrial-800 bg-industrial-100 px-2 py-0.5 rounded border border-industrial-200" title="Original Excel Sequence / الرقم التسلسلي الأصلي">
                                 #Seq: {item.originalSequence}
                               </span>
@@ -1714,18 +1820,26 @@ export default function SearchView({ materials: rawMaterials = [], currentUser, 
                       <div>
                         {/* Priority Match Badge & Status Badge */}
                         <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                          <div className="flex items-center gap-1.5 min-w-0">
+                          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                             {matchCategory && universalQuery.trim() && (
                               <span className="text-[9.5px] font-mono font-bold bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-700 px-2 py-0.5 rounded-md">
                                 {priorityRank === 1 ? '🎯 ' : priorityRank === 2 ? '🏷️ ' : priorityRank === 3 ? '🔢 ' : priorityRank === 4 ? '📄 ' : '🔍 '}
                                 {matchCategory}
                               </span>
                             )}
-                            {material.sequence !== undefined && (
-                              <span className="text-[10px] font-mono font-black text-industrial-700 dark:text-industrial-300 bg-industrial-100 dark:bg-industrial-700 px-1.5 py-0.5 rounded">
-                                #{material.sequence}
+                            {/* Distinct Warehouse File Badge */}
+                            <span 
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800"
+                              title={`ملف المخزن الأصلي: ${fileMap.get(material.fileId || '')?.name || material.fileName || 'NDGS Instrument Materials'}`}
+                            >
+                              <FolderKanban className="h-3 w-3 text-indigo-500 shrink-0" />
+                              <span className="truncate max-w-[130px]">
+                                {fileMap.get(material.fileId || '')?.name || material.fileName || 'NDGS Instrument Materials'}
                               </span>
-                            )}
+                              <span className="font-mono text-indigo-600 dark:text-indigo-400">
+                                #{material.fileSequence ?? material.sequence}
+                              </span>
+                            </span>
                           </div>
 
                           {getStatusBadge(computedStatus)}

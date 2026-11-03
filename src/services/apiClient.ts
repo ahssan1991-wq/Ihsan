@@ -71,18 +71,29 @@ export function isCapacitorOrMobileApp(): boolean {
 }
 
 export function getBaseApiUrl(): string {
-  // If user configured a custom backend in local storage
-  const savedUrl = localStorage.getItem('emis_backend_server_url');
-  if (savedUrl && savedUrl.trim()) {
-    return savedUrl.trim().replace(/\/+$/, '');
-  }
-
   // When running in any web browser over HTTP or HTTPS, ALWAYS use relative URLs (same origin)
   if (typeof window !== 'undefined' && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
+    // Clean up any stale Cloud Run or ais-pre URLs from localStorage that cause 302 auth check redirects
+    const savedUrl = localStorage.getItem('emis_backend_server_url');
+    if (savedUrl && (savedUrl.includes('run.app') || savedUrl.includes('ais-pre-') || savedUrl.includes('ais-dev-'))) {
+      try {
+        localStorage.removeItem('emis_backend_server_url');
+      } catch (_) {}
+    } else if (savedUrl && savedUrl.trim()) {
+      // Allow custom on-premise local IP/host if user explicitly set a non-cloud URL
+      return savedUrl.trim().replace(/\/+$/, '');
+    }
+
     if ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.location.port !== '3000' && window.location.port !== '') {
       return 'http://localhost:3000';
     }
     return '';
+  }
+
+  // Check if user configured a custom backend in local storage (e.g. mobile app)
+  const savedUrl = localStorage.getItem('emis_backend_server_url');
+  if (savedUrl && savedUrl.trim()) {
+    return savedUrl.trim().replace(/\/+$/, '');
   }
 
   // Check if running inside native Android APK / Capacitor standalone package

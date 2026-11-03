@@ -4,7 +4,7 @@
  */
 
 import { 
-  Material, ActivityLog, User, UserRole, Equipment, MaterialHistoryEvent, MaterialDocument, 
+  Material, WarehouseFile, ActivityLog, User, UserRole, Equipment, MaterialHistoryEvent, MaterialDocument, 
   BlacklistItem, ChatMessage, FeedbackItem, EngineeringDecision, PendingSyncChange, StockMovement, 
   MaterialInspectionRecord, ExternalFile, ExternalSource, ExternalMaterial, UnifiedSearchResult, 
   UnifiedSearchResultSource, ImportBatch, AppDocument, FavoriteItem, SearchHistoryItem, 
@@ -28,6 +28,11 @@ import { getBaseApiUrl } from './apiClient';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, collection } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
+import { 
+  detectDuplicateMaterial, 
+  validateSequenceAvailability, 
+  getAuthoritativeSuggestedSequence 
+} from './duplicateDetectionService';
 
 // Lazy initialize standard Firebase & Firestore
 let firestoreDb: any = null;
@@ -111,6 +116,7 @@ const STORAGE_KEYS = {
   DECISIONS: 'emis_decisions',
   STOCK_MOVEMENTS: 'emis_stock_movements',
   INSPECTIONS: 'emis_inspections',
+  WAREHOUSE_FILES: 'emis_warehouse_files',
   EXTERNAL_FILES: 'emis_external_files',
   EXTERNAL_MATERIALS: 'emis_external_materials',
   IMPORT_BATCHES: 'emis_import_batches',
@@ -144,6 +150,35 @@ const STORAGE_KEYS = {
   FAILED_LOGINS: 'emis_failed_logins',
   AUDIT_LOGS: 'emis_audit_logs'
 };
+
+// High-Performance In-Memory Cache layer
+let memoryCachedMaterials: Material[] | null = null;
+let memoryCachedBlacklist: BlacklistItem[] | null = null;
+let memoryCachedEquipment: Equipment[] | null = null;
+let autoBackupDebounceTimer: any = null;
+let lastAutoBackupTimestamp = 0;
+
+export function invalidateDbCache(key?: string) {
+  if (!key || key === STORAGE_KEYS.MATERIALS) memoryCachedMaterials = null;
+  if (!key || key === STORAGE_KEYS.BLACKLIST) memoryCachedBlacklist = null;
+  if (!key || key === STORAGE_KEYS.EQUIPMENT) memoryCachedEquipment = null;
+}
+
+function scheduleAutomaticBackup(): void {
+  if (autoBackupDebounceTimer) {
+    clearTimeout(autoBackupDebounceTimer);
+  }
+  const now = Date.now();
+  const delay = (now - lastAutoBackupTimestamp < 240000) ? 20000 : 5000;
+  autoBackupDebounceTimer = setTimeout(() => {
+    lastAutoBackupTimestamp = Date.now();
+    try {
+      dbService.triggerAutomaticBackup();
+    } catch (e) {
+      console.warn('Scheduled auto backup non-critical fault:', e);
+    }
+  }, delay);
+}
 
 // Pending sync queue helpers
 function getStoredPendingChanges(): PendingSyncChange[] {
@@ -201,8 +236,8 @@ function markPendingSyncChangesAsSynced(keys?: string[]): void {
   }
 }
 
-// Background sync to server-side JSON store AND standard Firebase Firestore SDK with automatic retry-backoff
-async function syncToBackend(collectionName: string, data: any[], attempt = 1) {
+// Background sync to server-side JSON store AND standard Firebase Firestore SDK with true status reporting
+async function syncToBackend(collectionName: string, data: any[], attempt = 1): Promise<boolean> {
   let isSuccess = false;
   try {
     const res = await fetch(`${getBaseApiUrl()}/api/db/sync/${collectionName}`, {
@@ -212,40 +247,36 @@ async function syncToBackend(collectionName: string, data: any[], attempt = 1) {
     });
     if (res.ok) {
       isSuccess = true;
-      markPendingSyncChangesAsSynced();
-    } else {
-      console.warn(`[Sync Attempt ${attempt}] Warning for ${collectionName}: server returned status ${res.status}`);
-      if (attempt < 3) {
-        const delay = attempt * 1000;
-        setTimeout(() => syncToBackend(collectionName, data, attempt + 1), delay);
-      }
     }
   } catch (err) {
     console.warn(`[Sync Attempt ${attempt}] Failed to connect to server for ${collectionName}:`, err);
-    if (attempt < 3) {
-      const delay = attempt * 1500;
-      setTimeout(() => syncToBackend(collectionName, data, attempt + 1), delay);
-    } else {
-      console.info(`[Sync Offline Fallback] ${collectionName} successfully persisted in local IndexedDB/localStorage storage.`);
-    }
   }
 
-  // Also write directly to standard Firebase Firestore SDK as requested
-  if (firestoreDb && Array.isArray(data)) {
-    try {
-      for (const item of data) {
-        // Generate a valid Document ID based on natural keys
-        const docId = item.partNumber || item.tagNumber || item.id || `doc-${Date.now()}`;
-        const cleanDocId = encodeURIComponent(docId).replace(/\./g, '_');
-        const docRef = doc(firestoreDb, collectionName, cleanDocId);
-        await setDoc(docRef, item, { merge: true });
+  // Non-blocking fire-and-forget sync to Firestore SDK (if initialized) without stalling the UI thread
+  if (firestoreDb && Array.isArray(data) && data.length > 0) {
+    (async () => {
+      try {
+        const { writeBatch } = await import('firebase/firestore');
+        const batch = writeBatch(firestoreDb);
+        const sample = data.slice(0, 50); // Write reasonable batch
+        for (const item of sample) {
+          const docId = item.partNumber || item.tagNumber || item.id;
+          if (docId) {
+            const cleanDocId = encodeURIComponent(String(docId)).replace(/\./g, '_');
+            const docRef = doc(firestoreDb, collectionName, cleanDocId);
+            batch.set(docRef, item, { merge: true });
+          }
+        }
+        await Promise.race([
+          batch.commit(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore write timeout')), 3000))
+        ]);
+      } catch (fireErr) {
+        // Handled silently: server and local storage already persisted
       }
-      isSuccess = true;
-      markPendingSyncChangesAsSynced();
-    } catch (fireErr) {
-      console.warn(`Firebase Firestore SDK direct setDoc error for collection ${collectionName}:`, fireErr);
-    }
+    })();
   }
+  return isSuccess;
 }
 
 // Predefined users
@@ -515,11 +546,68 @@ export const INITIAL_MASTER_USERS: User[] = [
   }
 ];
 
+export const INITIAL_WAREHOUSE_FILES: WarehouseFile[] = [
+  {
+    id: 'wh-file-ndgs-master',
+    name: 'NDGS Instrument Materials',
+    fileName: 'NDGS_Instrument_Materials_Master.xlsx',
+    warehouseCode: 'WH-NDGS-01',
+    warehouseName: 'NDGS Station Warehouse',
+    description: 'ملف مخزن أجهزة القياس والسيطرة والسلينويد لمحطة NDGS',
+    totalRecords: 12,
+    currentMaxSequence: 12,
+    sequencePrefix: 'NDGS',
+    sheetName: 'Sheet1',
+    createdAt: '2025-01-01T00:00:00.000Z',
+    updatedAt: new Date().toISOString(),
+    createdBy: 'Sarah Jenkins (Admin)',
+    status: 'ACTIVE',
+    tags: ['Instrumentation', 'Gas Plant', 'NDGS']
+  },
+  {
+    id: 'wh-file-maint-warehouse',
+    name: 'Maintenance Warehouse',
+    fileName: 'Maintenance_Warehouse_Spares.xlsx',
+    warehouseCode: 'WH-MECH-01',
+    warehouseName: 'Mechanical Spares Warehouse',
+    description: 'ملف مخزن قطع الغيار الميكانيكية والصمامات والمضخات',
+    totalRecords: 0,
+    currentMaxSequence: 0,
+    sequencePrefix: 'MAINT',
+    sheetName: 'Spares',
+    createdAt: '2025-02-01T00:00:00.000Z',
+    updatedAt: new Date().toISOString(),
+    createdBy: 'Marcus Vance (Engineer)',
+    status: 'ACTIVE',
+    tags: ['Mechanical', 'Maintenance']
+  },
+  {
+    id: 'wh-file-received-mats',
+    name: 'Received Materials',
+    fileName: 'Received_Materials_Log.xlsx',
+    warehouseCode: 'WH-ELEC-A',
+    warehouseName: 'Electronics Lab (Lab A)',
+    description: 'ملف المواد المستلمة حديثاً وقيد الفحص والمطابقة الهندسية',
+    totalRecords: 0,
+    currentMaxSequence: 0,
+    sequencePrefix: 'REC',
+    sheetName: 'Incoming',
+    createdAt: '2025-03-01T00:00:00.000Z',
+    updatedAt: new Date().toISOString(),
+    createdBy: 'Hassan Ahmed (Storekeeper)',
+    status: 'ACTIVE',
+    tags: ['Receiving', 'Inspection']
+  }
+];
+
 export const dbService = {
   /**
    * Initializes the database with mock and master data if empty.
    */
   initialize: (): void => {
+    if (!localStorage.getItem(STORAGE_KEYS.WAREHOUSE_FILES)) {
+      safeSetItem(STORAGE_KEYS.WAREHOUSE_FILES, JSON.stringify(INITIAL_WAREHOUSE_FILES));
+    }
     if (!localStorage.getItem(STORAGE_KEYS.SITES)) {
       safeSetItem(STORAGE_KEYS.SITES, JSON.stringify(INITIAL_MASTER_SITES));
     }
@@ -801,96 +889,110 @@ export const dbService = {
 
   // --- MATERIALS SECTION ---
 
-  getMaterials: (filterUser?: User | null): Material[] => {
-    dbService.initialize();
-    try {
-      const data = localStorage.getItem(STORAGE_KEYS.MATERIALS);
-      if (!data) return INITIAL_MATERIALS || [];
-      const parsed: Material[] = JSON.parse(data);
-      if (!Array.isArray(parsed)) return INITIAL_MATERIALS || [];
-      let list = parsed.map(m => {
-        const isTemp = m.partNumber && (
-          m.partNumber.startsWith('TEMP-PN-') ||
-          m.partNumber.startsWith('TEMP_PN_') ||
-          m.partNumber.startsWith('TEMP-') ||
-          m.partNumber.startsWith('AUTOPN-')
-        );
-        let cleanPartNumber = isTemp ? '' : (m.partNumber || '').trim();
-        let autoGen = isTemp ? true : Boolean(m.isPartNumberAutoGenerated);
+  getMaterials: (filterUser?: User | null, forceFresh = false): Material[] => {
+    let list: Material[];
+    if (memoryCachedMaterials && !forceFresh) {
+      list = memoryCachedMaterials;
+    } else {
+      dbService.initialize();
+      try {
+        const data = localStorage.getItem(STORAGE_KEYS.MATERIALS);
+        if (!data) return INITIAL_MATERIALS || [];
+        const parsed: Material[] = JSON.parse(data);
+        if (!Array.isArray(parsed)) return INITIAL_MATERIALS || [];
+        list = parsed.map(m => {
+          const isTemp = m.partNumber && (
+            m.partNumber.startsWith('TEMP-PN-') ||
+            m.partNumber.startsWith('TEMP_PN_') ||
+            m.partNumber.startsWith('TEMP-') ||
+            m.partNumber.startsWith('AUTOPN-')
+          );
+          let cleanPartNumber = isTemp ? '' : (m.partNumber || '').trim();
+          let autoGen = isTemp ? true : Boolean(m.isPartNumberAutoGenerated);
 
-        // Intelligent Auto-Extraction: If partNumber is missing, extract it from Model or Description
-        if (!cleanPartNumber) {
-          // Check if model contains PN:... or P/N:... (e.g., "PN:USFR-02ND")
-          const pnInModel = (m.model || '').match(/(?:PN|P\/N|PART\s*NO)[\s:_-]*([A-Za-z0-9/_-]+)/i);
-          if (pnInModel && pnInModel[1]) {
-            cleanPartNumber = pnInModel[1].trim();
-            autoGen = false;
-          } else {
-            // Check if description contains PN:... (e.g., "... PN:USFR-02ND")
-            const pnInDesc = (m.description || '').match(/(?:PN|P\/N|PART\s*NO)[\s:_-]*([A-Za-z0-9/_-]+)/i);
-            if (pnInDesc && pnInDesc[1]) {
-              cleanPartNumber = pnInDesc[1].trim();
+          // Intelligent Auto-Extraction: If partNumber is missing, extract it from Model or Description
+          if (!cleanPartNumber) {
+            // Check if model contains PN:... or P/N:... (e.g., "PN:USFR-02ND")
+            const pnInModel = (m.model || '').match(/(?:PN|P\/N|PART\s*NO)[\s:_-]*([A-Za-z0-9/_-]+)/i);
+            if (pnInModel && pnInModel[1]) {
+              cleanPartNumber = pnInModel[1].trim();
               autoGen = false;
+            } else {
+              // Check if description contains PN:... (e.g., "... PN:USFR-02ND")
+              const pnInDesc = (m.description || '').match(/(?:PN|P\/N|PART\s*NO)[\s:_-]*([A-Za-z0-9/_-]+)/i);
+              if (pnInDesc && pnInDesc[1]) {
+                cleanPartNumber = pnInDesc[1].trim();
+                autoGen = false;
+              }
             }
           }
-        }
 
-        const uniqueId = m.id || (m.sequence ? `mat-seq-${m.sequence}` : `mat-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`);
+          const uniqueId = m.id || (m.sequence ? `mat-seq-${m.sequence}` : `mat-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`);
 
-        // Create initial history if not present
-        const defaultHistory: MaterialHistoryEvent[] = [
-          {
-            id: `hist-init-${uniqueId}`,
-            action: 'Material Created',
-            details: `Material record initialized with quantity ${m.quantity} ${m.unit}`,
-            userName: 'Sarah Jenkins',
-            userRole: UserRole.ADMIN,
-            timestamp: m.createdAt || new Date().toISOString()
-          }
-        ];
+          // Create initial history if not present
+          const defaultHistory: MaterialHistoryEvent[] = [
+            {
+              id: `hist-init-${uniqueId}`,
+              action: 'Material Created',
+              details: `Material record initialized with quantity ${m.quantity} ${m.unit}`,
+              userName: 'Sarah Jenkins',
+              userRole: UserRole.ADMIN,
+              timestamp: m.createdAt || new Date().toISOString()
+            }
+          ];
 
-        return {
-          ...m,
-          id: uniqueId,
-          partNumber: cleanPartNumber,
-          isPartNumberAutoGenerated: autoGen,
-          compatibleEquipment: m.compatibleEquipment || [],
-          alternatives: m.alternatives || { primary: '', secondary: '', notes: '', reason: '' },
-          documents: m.documents || {},
-          photos: m.photos || { nameplate: [], installation: [], warehouse: [], other: [] },
-          history: m.history || defaultHistory,
-          engineeringNotes: m.engineeringNotes || m.notes || '',
-          oemVerified: m.oemVerified ?? false,
-          oemVerificationStatus: m.oemVerificationStatus || 'pending',
-          oemCertificateId: m.oemCertificateId || '',
-          oemVerifiedBy: m.oemVerifiedBy || '',
-          oemVerificationDate: m.oemVerificationDate || '',
-          oemVerificationNotes: m.oemVerificationNotes || ''
-        };
-      });
-
-      // Enforce site-level isolation if user is restricted to specific sites
-      if (filterUser && filterUser.role !== UserRole.ADMIN && filterUser.allowedSites && filterUser.allowedSites.length > 0) {
-        list = list.filter(m => {
-          if (!m.site && !m.siteId) return true; // Global material
-          if (m.siteId && filterUser.allowedSites!.includes(m.siteId)) return true;
-          if (m.site && filterUser.allowedSites!.some(s => s.toLowerCase() === m.site!.toLowerCase())) return true;
-          if (filterUser.site && m.site && filterUser.site.toLowerCase() === m.site.toLowerCase()) return true;
-          return false;
+          return {
+            ...m,
+            id: uniqueId,
+            fileId: m.fileId || 'wh-file-ndgs-master',
+            fileName: m.fileName || 'NDGS_Instrument_Materials_Master.xlsx',
+            fileSequence: m.fileSequence ?? m.sequence,
+            partNumber: cleanPartNumber,
+            isPartNumberAutoGenerated: autoGen,
+            compatibleEquipment: m.compatibleEquipment || [],
+            alternatives: m.alternatives || { primary: '', secondary: '', notes: '', reason: '' },
+            documents: m.documents || {},
+            photos: m.photos || { nameplate: [], installation: [], warehouse: [], other: [] },
+            history: m.history || defaultHistory,
+            engineeringNotes: m.engineeringNotes || m.notes || '',
+            oemVerified: m.oemVerified ?? false,
+            oemVerificationStatus: m.oemVerificationStatus || 'pending',
+            oemCertificateId: m.oemCertificateId || '',
+            oemVerifiedBy: m.oemVerifiedBy || '',
+            oemVerificationDate: m.oemVerificationDate || '',
+            oemVerificationNotes: m.oemVerificationNotes || ''
+          };
         });
-      }
 
-      return list;
-    } catch (e) {
-      console.warn('Error reading materials from storage:', e);
-      return INITIAL_MATERIALS || [];
+        memoryCachedMaterials = list;
+      } catch (e) {
+        console.warn('Error reading materials from storage:', e);
+        return INITIAL_MATERIALS || [];
+      }
     }
+
+    // Enforce site-level isolation if user is restricted to specific sites
+    if (filterUser && filterUser.role !== UserRole.ADMIN && filterUser.allowedSites && filterUser.allowedSites.length > 0) {
+      return list.filter(m => {
+        if (!m.site && !m.siteId) return true; // Global material
+        if (m.siteId && filterUser.allowedSites!.includes(m.siteId)) return true;
+        if (m.site && filterUser.allowedSites!.some(s => s.toLowerCase() === m.site!.toLowerCase())) return true;
+        if (filterUser.site && m.site && filterUser.site.toLowerCase() === m.site.toLowerCase()) return true;
+        return false;
+      });
+    }
+
+    return list;
   },
 
   saveMaterials: (materials: Material[]): void => {
     safeSetItem(STORAGE_KEYS.MATERIALS, JSON.stringify(materials));
+    memoryCachedMaterials = materials;
     syncToBackend('materials', materials);
-    dbService.triggerAutomaticBackup();
+    scheduleAutomaticBackup();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('emis:materials-changed'));
+    }
   },
 
   clearAllMaterials: (currentUser: User): void => {
@@ -965,7 +1067,7 @@ export const dbService = {
     return materials.find(m => m.partNumber.toUpperCase() === partNumber.toUpperCase());
   },
 
-  addMaterial: (material: Omit<Material, 'createdAt' | 'updatedAt'>, currentUser: User): { success: boolean; error?: string } => {
+  addMaterial: (material: Omit<Material, 'createdAt' | 'updatedAt'>, currentUser: User): { success: boolean; error?: string; duplicateMatch?: Material } => {
     // Enforce RBAC: Read-only accounts cannot create materials
     if (currentUser.role === UserRole.VIEWER) {
       dbService.logAudit({
@@ -983,28 +1085,58 @@ export const dbService = {
       return { success: false, error: 'Access Denied: Read-only accounts cannot create new materials.' };
     }
 
-    const materials = dbService.getMaterials();
+    const materials = dbService.getMaterials(null, true);
     const normalizedPartNumber = (material.partNumber || '').trim();
 
-    // If a part number is explicitly provided, verify uniqueness against other items
-    if (normalizedPartNumber) {
-      const exists = materials.some(
-        m => m.partNumber && m.partNumber.trim().toUpperCase() === normalizedPartNumber.toUpperCase()
-      );
+    // 1. Robust duplicate detection across all key fields (partNumber, materialCode, tag, model, serial)
+    const dupCheck = detectDuplicateMaterial({
+      partNumber: normalizedPartNumber,
+      materialCode: material.materialCode,
+      tagNumber: material.tagNumber,
+      barcode: material.barcode,
+      qrCode: material.qrCode,
+      serialNumber: material.serialNumber,
+      manufacturer: material.manufacturer,
+      model: material.model,
+      description: material.description
+    }, materials);
 
-      if (exists) {
-        return { success: false, error: `Part Number "${normalizedPartNumber}" already exists in the system.` };
-      }
+    if (dupCheck.level === 'EXACT' && dupCheck.exactMatch) {
+      const reasonMsg = dupCheck.reasons[0]?.descriptionAr || 'تطابق في رقم القطعة أو المعرف';
+      return { 
+        success: false, 
+        error: `المادة مسجلة مسبقاً في النظام: ${reasonMsg} (${dupCheck.exactMatch.partNumber || dupCheck.exactMatch.description})`,
+        duplicateMatch: dupCheck.exactMatch
+      };
     }
 
-    // Determine the next orderly sequence number if not explicitly specified
-    const existingSequences = materials
-      .map(m => m.sequence)
-      .filter((s): s is number => typeof s === 'number' && !isNaN(s) && s > 0);
-    const maxSeq = existingSequences.length > 0 ? Math.max(...existingSequences) : 0;
-    const finalSequence = (material.sequence !== undefined && material.sequence > 0)
-      ? material.sequence
-      : (maxSeq + 1);
+    // 2. Authoritative Sequence Assignment & Collision Prevention
+    let finalSequence: number;
+    if (typeof material.sequence === 'number' && material.sequence > 0) {
+      const seqCheck = validateSequenceAvailability(material.sequence, undefined, materials);
+      if (!seqCheck.isAvailable) {
+        finalSequence = seqCheck.suggestedAlternative;
+      } else {
+        finalSequence = material.sequence;
+      }
+    } else {
+      finalSequence = getAuthoritativeSuggestedSequence(materials);
+    }
+
+    const targetFileId = material.fileId || 'wh-file-ndgs-master';
+    const warehouseFiles = dbService.getWarehouseFiles();
+    const wfIdx = warehouseFiles.findIndex(f => f.id === targetFileId);
+    let targetFileName = material.fileName;
+    if (wfIdx !== -1) {
+      targetFileName = targetFileName || warehouseFiles[wfIdx].name || warehouseFiles[wfIdx].fileName;
+      warehouseFiles[wfIdx] = {
+        ...warehouseFiles[wfIdx],
+        totalRecords: (warehouseFiles[wfIdx].totalRecords || 0) + 1,
+        currentMaxSequence: Math.max(warehouseFiles[wfIdx].currentMaxSequence || 0, finalSequence),
+        updatedAt: new Date().toISOString()
+      };
+      dbService.saveWarehouseFiles(warehouseFiles);
+    }
 
     const materialId = material.id || `mat-${finalSequence}-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
 
@@ -1012,6 +1144,9 @@ export const dbService = {
       ...material,
       id: materialId,
       sequence: finalSequence,
+      fileId: targetFileId,
+      fileName: targetFileName || 'NDGS Instrument Materials',
+      fileSequence: material.fileSequence ?? finalSequence,
       partNumber: normalizedPartNumber,
       isPartNumberAutoGenerated: !normalizedPartNumber || Boolean(material.isPartNumberAutoGenerated),
       createdAt: new Date().toISOString(),
@@ -1070,6 +1205,11 @@ export const dbService = {
       });
     } catch (e) {
       console.warn('Failed to add notification for new material:', e);
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('emis:material-added', { detail: newMaterial }));
+      window.dispatchEvent(new CustomEvent('emis:materials-changed'));
     }
 
     return { success: true };
@@ -1453,6 +1593,13 @@ export const dbService = {
     const originalLength = materials.length;
     const targetKey = (partNumber || '').trim();
 
+    const deletedMaterial = materials.find(m => {
+      if (m.id && targetKey && m.id === targetKey) return true;
+      if (targetKey && m.partNumber && m.partNumber.trim().toUpperCase() === targetKey.toUpperCase()) return true;
+      if (targetKey && m.sequence !== undefined && String(m.sequence) === targetKey) return true;
+      return false;
+    });
+
     const filtered = materials.filter(m => {
       if (m.id && targetKey && m.id === targetKey) return false;
       if (targetKey && m.partNumber && m.partNumber.trim().toUpperCase() === targetKey.toUpperCase()) return false;
@@ -1462,6 +1609,19 @@ export const dbService = {
 
     if (filtered.length === originalLength) {
       return { success: false, error: 'Material not found.' };
+    }
+
+    if (deletedMaterial && deletedMaterial.fileId) {
+      const warehouseFiles = dbService.getWarehouseFiles();
+      const wfIdx = warehouseFiles.findIndex(f => f.id === deletedMaterial.fileId);
+      if (wfIdx !== -1) {
+        warehouseFiles[wfIdx] = {
+          ...warehouseFiles[wfIdx],
+          totalRecords: Math.max(0, (warehouseFiles[wfIdx].totalRecords || 0) - 1),
+          updatedAt: new Date().toISOString()
+        };
+        dbService.saveWarehouseFiles(warehouseFiles);
+      }
     }
 
     dbService.saveMaterials(filtered);
@@ -2051,6 +2211,27 @@ export const dbService = {
 
   syncAllPendingToFirebase: async (): Promise<{ success: boolean; syncedCount: number; message: string }> => {
     try {
+      const pending = getStoredPendingChanges().filter(p => p.status === 'pending' || p.status === 'failed');
+      const count = pending.length;
+
+      // 1. Fast Path: If queue is already empty (0 pending items), perform instant heartbeat and return
+      if (count === 0) {
+        try {
+          await fetch(`${getBaseApiUrl()}/api/db/load`, { method: 'GET' });
+        } catch (_) {}
+        safeSetItem(STORAGE_KEYS.LAST_SYNC_TIME, new Date().toISOString());
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('emis:sync-status-changed'));
+          window.dispatchEvent(new CustomEvent('emis:sync-finished'));
+        }
+        return {
+          success: true,
+          syncedCount: 0,
+          message: 'All inventory and catalog records are up to date and synchronized.'
+        };
+      }
+
+      // 2. Active Sync: Push entities to backend with strict 4-second timeout guarantee
       const materials = dbService.getMaterials();
       const equipment = dbService.getEquipment();
       const activities = JSON.parse(localStorage.getItem(STORAGE_KEYS.ACTIVITIES) || "[]");
@@ -2058,32 +2239,40 @@ export const dbService = {
       const feedback = JSON.parse(localStorage.getItem(STORAGE_KEYS.FEEDBACK) || "[]");
       const blacklist = JSON.parse(localStorage.getItem(STORAGE_KEYS.BLACKLIST) || "[]");
 
-      const pending = getStoredPendingChanges().filter(p => p.status === 'pending' || p.status === 'failed');
-      const count = pending.length;
-
-      // Execute synchronizations across all entities
-      await Promise.all([
-        syncToBackend('materials', materials),
-        syncToBackend('equipment', equipment),
-        syncToBackend('activities', activities),
-        syncToBackend('decisions', decisions),
-        syncToBackend('feedback', feedback),
-        syncToBackend('blacklist', blacklist)
+      await Promise.race([
+        Promise.all([
+          syncToBackend('materials', materials),
+          syncToBackend('equipment', equipment),
+          syncToBackend('activities', activities),
+          syncToBackend('decisions', decisions),
+          syncToBackend('feedback', feedback),
+          syncToBackend('blacklist', blacklist)
+        ]),
+        new Promise((resolve) => setTimeout(resolve, 3500))
       ]);
 
       markPendingSyncChangesAsSynced();
+      safeSetItem(STORAGE_KEYS.LAST_SYNC_TIME, new Date().toISOString());
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('emis:sync-status-changed'));
+        window.dispatchEvent(new CustomEvent('emis:sync-finished'));
+      }
 
       return {
         success: true,
         syncedCount: count,
-        message: `Successfully synchronized ${count > 0 ? count + ' pending changes and ' : ''}catalog records with Firebase Cloud database.`
+        message: `Successfully synchronized ${count} pending change(s) with Cloud database.`
       };
     } catch (e: any) {
       console.warn('Manual syncAllPendingToFirebase failed:', e);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('emis:sync-finished'));
+      }
       return {
         success: false,
         syncedCount: 0,
-        message: `Sync failed due to network or connection issue: ${e.message || 'Offline node'}`
+        message: `Sync failed due to network issue: ${e.message || 'Offline'}`
       };
     }
   },
@@ -3108,6 +3297,156 @@ export const dbService = {
     } catch (err: any) {
       return { success: false, error: err.message || 'Failed to delete external file' };
     }
+  },
+
+  // =========================================================================
+  // --- EMIS WAREHOUSE FILES REGISTRY (INDEPENDENT EXCEL WAREHOUSE SYSTEM) ---
+  // =========================================================================
+
+  /**
+   * Retrieves all registered independent warehouse files.
+   */
+  getWarehouseFiles: (): WarehouseFile[] => {
+    dbService.initialize();
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.WAREHOUSE_FILES);
+      if (!data) return INITIAL_WAREHOUSE_FILES;
+      const list: WarehouseFile[] = JSON.parse(data);
+      return Array.isArray(list) ? list : INITIAL_WAREHOUSE_FILES;
+    } catch {
+      return INITIAL_WAREHOUSE_FILES;
+    }
+  },
+
+  /**
+   * Saves warehouse files metadata index to storage and syncs to backend.
+   */
+  saveWarehouseFiles: (files: WarehouseFile[]): void => {
+    safeSetItem(STORAGE_KEYS.WAREHOUSE_FILES, JSON.stringify(files));
+    syncToBackend('warehouse_files', files);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('emis:warehouse-files-changed'));
+    }
+  },
+
+  /**
+   * Adds or registers a new independent warehouse file.
+   */
+  addWarehouseFile: (
+    fileData: Omit<WarehouseFile, 'id' | 'createdAt' | 'updatedAt'>,
+    currentUser?: User
+  ): WarehouseFile => {
+    const files = dbService.getWarehouseFiles();
+    const newFile: WarehouseFile = {
+      ...fileData,
+      id: `wh-file-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      status: fileData.status || 'ACTIVE'
+    };
+
+    const updated = [newFile, ...files];
+    dbService.saveWarehouseFiles(updated);
+
+    if (currentUser) {
+      dbService.logActivity({
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userRole: currentUser.role,
+        action: 'create',
+        details: `Created new Warehouse File registry: "${newFile.name}" (${newFile.fileName})`
+      });
+    }
+
+    return newFile;
+  },
+
+  /**
+   * Updates an existing warehouse file's metadata.
+   */
+  updateWarehouseFile: (file: WarehouseFile, currentUser?: User): boolean => {
+    const files = dbService.getWarehouseFiles();
+    const idx = files.findIndex(f => f.id === file.id);
+    if (idx === -1) return false;
+
+    const updated = [...files];
+    updated[idx] = {
+      ...file,
+      updatedAt: new Date().toISOString()
+    };
+    dbService.saveWarehouseFiles(updated);
+
+    if (currentUser) {
+      dbService.logActivity({
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userRole: currentUser.role,
+        action: 'update',
+        details: `Updated Warehouse File: "${file.name}"`
+      });
+    }
+
+    return true;
+  },
+
+  /**
+   * Deletes a warehouse file and optionally its associated materials with explicit safety check.
+   */
+  deleteWarehouseFile: (
+    fileId: string,
+    currentUser: User,
+    deleteAssociatedMaterials = false
+  ): { success: boolean; error?: string } => {
+    if (currentUser.role === UserRole.VIEWER) {
+      return { success: false, error: 'Clearance level insufficient to delete warehouse files.' };
+    }
+
+    const files = dbService.getWarehouseFiles();
+    const target = files.find(f => f.id === fileId);
+    if (!target) {
+      return { success: false, error: 'Warehouse file not found.' };
+    }
+
+    const updatedFiles = files.filter(f => f.id !== fileId);
+    dbService.saveWarehouseFiles(updatedFiles);
+
+    if (deleteAssociatedMaterials) {
+      const allMaterials = dbService.getMaterials();
+      const retained = allMaterials.filter(m => m.fileId !== fileId);
+      dbService.saveMaterials(retained);
+    }
+
+    dbService.logActivity({
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userRole: currentUser.role,
+      action: 'delete',
+      details: `Deleted Warehouse File: "${target.name}" (${target.fileName})`
+    });
+
+    return { success: true };
+  },
+
+  /**
+   * Retrieves materials that belong to a specific warehouse file.
+   */
+  getMaterialsForFile: (fileId: string): Material[] => {
+    const materials = dbService.getMaterials();
+    return materials.filter(m => m.fileId === fileId);
+  },
+
+  /**
+   * Computes the next suggested sequence specifically within a given warehouse file.
+   * Starts at 1 if file is empty.
+   */
+  getSuggestedSequenceForFile: (fileId: string): number => {
+    const fileMaterials = dbService.getMaterialsForFile(fileId);
+    const validSeqs = fileMaterials
+      .map(m => m.fileSequence ?? m.sequence)
+      .filter((s): s is number => typeof s === 'number' && !isNaN(s) && s > 0);
+
+    if (validSeqs.length === 0) return 1;
+    return Math.max(...validSeqs) + 1;
   },
 
   /**

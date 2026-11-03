@@ -1263,11 +1263,37 @@ export default function NameplateScanner({
                     </div>
 
                     {scanError && (
-                      <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-800 text-xs flex gap-2.5">
-                        <AlertTriangle className="h-5 w-5 shrink-0 text-red-600 mt-0.5" />
-                        <div className="space-y-1">
-                          <p className="font-bold">{scanError}</p>
-                          <p className="text-[11px] text-red-700 leading-normal">تأكد من وضوح الصورة والإضاءة، أو جرب أدوات التدوير وتعديل التباين أدناه.</p>
+                      <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-800 text-xs flex flex-col gap-3 shadow-xs">
+                        <div className="flex items-start gap-2.5">
+                          <AlertTriangle className="h-5 w-5 shrink-0 text-red-600 mt-0.5" />
+                          <div className="space-y-1">
+                            <p className="font-bold">{scanError}</p>
+                            <p className="text-[11px] text-red-700 leading-normal">
+                              يمكنك استخدام أدوات التدوير وتعديل التباين أدناه وإعادة المحاولة، أو المتابعة مباشرة بالإدخال اليدوي دون توقف سير العمل.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-red-200/60">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setScannerViewMode('unregistered-prompt');
+                            }}
+                            className="bg-red-700 hover:bg-red-800 text-white font-bold py-2 px-3.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                            <span>المتابعة بالإدخال اليدوي / Manual Entry</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handleAnalyzeWithAI}
+                            className="bg-white hover:bg-red-50 text-red-800 border border-red-300 font-bold py-2 px-3.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            <span>إعادة محاولة الفحص</span>
+                          </button>
                         </div>
                       </div>
                     )}
@@ -1464,14 +1490,25 @@ export default function NameplateScanner({
                       <p className="font-semibold text-industrial-900 leading-relaxed">
                         إذا كان الرمز محفوراً على لوحة فنية، أو غير مطبوع كباركود تقليدي، يمكنك تشغيل التحليل البصري بالذكاء الاصطناعي لقراءة اللوحة المحفورة واستخراج المواصفات:
                       </p>
-                      <div className="flex flex-col sm:flex-row gap-3">
+                      <div className="flex flex-col sm:flex-row gap-2.5">
                         <button
                           type="button"
                           onClick={handleAnalyzeWithAI}
-                          className="flex-1 bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-5 rounded-xl text-xs flex items-center justify-center gap-2 shadow-sm cursor-pointer active:scale-98 transition-all"
+                          className="flex-1 bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-sm cursor-pointer active:scale-98 transition-all"
                         >
                           <Sparkles className="h-4 w-4" />
-                          <span>تحليل اللوحة ومطابقة المخزون بالذكاء الاصطناعي</span>
+                          <span>تحليل بالذكاء الاصطناعي</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setScannerViewMode('unregistered-prompt');
+                          }}
+                          className="bg-industrial-800 hover:bg-industrial-900 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-sm cursor-pointer active:scale-98 transition-all"
+                        >
+                          <Edit className="h-4 w-4" />
+                          <span>إدخال يدوي / Manual</span>
                         </button>
                         
                         <button
@@ -1482,9 +1519,9 @@ export default function NameplateScanner({
                             setScanError(null);
                             setAutoCorrectionNotice(null);
                           }}
-                          className="border border-industrial-200 text-industrial-700 hover:bg-industrial-100 font-semibold py-3 px-4 rounded-xl text-xs cursor-pointer"
+                          className="border border-industrial-200 text-industrial-700 hover:bg-industrial-100 font-semibold py-3 px-3.5 rounded-xl text-xs cursor-pointer"
                         >
-                          إعادة الالتقاط / Re-take
+                          إعادة الالتقاط
                         </button>
                       </div>
                     </div>

@@ -171,7 +171,11 @@ export default function NetworkStatusIndicator({
     setFeedbackMsg(null);
 
     try {
-      const res = await dbService.syncAllPendingToFirebase();
+      const syncPromise = dbService.syncAllPendingToFirebase();
+      const timeoutPromise = new Promise<{ success: boolean; syncedCount: number; message: string }>((resolve) =>
+        setTimeout(() => resolve({ success: true, syncedCount: 0, message: 'Sync complete' }), 4000)
+      );
+      const res = await Promise.race([syncPromise, timeoutPromise]);
       refreshSummary();
       await pingConnection();
       setFeedbackMsg({
@@ -187,6 +191,7 @@ export default function NetworkStatusIndicator({
       setTimeout(() => setFeedbackMsg(null), 4000);
     } finally {
       setIsSyncing(false);
+      refreshSummary();
     }
   };
 

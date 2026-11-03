@@ -38,9 +38,12 @@ import {
   ShoppingCart,
   Hourglass,
   Wrench,
-  Download
+  Download,
+  FolderKanban,
+  Star
 } from 'lucide-react';
-import { UserRole } from '../types';
+import { UserRole, WarehouseFile } from '../types';
+import { dbService } from '../services/dbService';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export interface NavItemConfig {
@@ -59,35 +62,78 @@ export interface NavItemConfig {
 }
 
 export const ALL_NAV_ITEMS: NavItemConfig[] = [
-  // Command Center
+  // ==========================================
+  // GROUP 1: WORKSPACE (مساحة العمل)
+  // ==========================================
   {
     id: 'dashboard',
     nameKey: 'dashboard',
-    fallbackName: 'Command Center',
-    arabicName: 'لوحة التحكم والقيادة',
+    fallbackName: 'Command Center & Dashboard',
+    arabicName: 'لوحة القيادة ومساحة العمل',
     icon: LayoutDashboard,
-    groupId: 'group-dashboard',
-    groupTitleKey: 'groupCommandCenter',
-    fallbackGroupTitle: 'Command Center',
-    arabicGroupTitle: 'مركز القيادة والتحكم',
+    groupId: 'group-workspace',
+    groupTitleKey: 'groupWorkspace',
+    fallbackGroupTitle: 'Workspace',
+    arabicGroupTitle: 'مساحة العمل',
     roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    keywords: ['home', 'overview', 'stats', 'رئيسية', 'لوحة', 'احصائيات']
+    keywords: ['home', 'overview', 'dashboard', 'workspace', 'رئيسية', 'لوحة', 'عمل', 'مؤشرات']
+  },
+  {
+    id: 'search',
+    nameKey: 'search',
+    fallbackName: 'Universal Search & OCR',
+    arabicName: 'البحث الشامل وقراءة اللوحات',
+    icon: Search,
+    groupId: 'group-workspace',
+    groupTitleKey: 'groupWorkspace',
+    fallbackGroupTitle: 'Workspace',
+    arabicGroupTitle: 'مساحة العمل',
+    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
+    keywords: ['search', 'find', 'lookup', 'ocr', 'nameplate', 'query', 'بحث', 'شامل', 'لوحة', 'استعلام']
   },
   {
     id: 'action-center',
     nameKey: 'actionCenter',
-    fallbackName: 'Action Center',
+    fallbackName: 'Action Center & Direct Alerts',
     arabicName: 'مركز الإجراءات والتنبيهات',
     icon: BellRing,
-    groupId: 'group-dashboard',
-    groupTitleKey: 'groupCommandCenter',
-    fallbackGroupTitle: 'Command Center',
-    arabicGroupTitle: 'مركز القيادة والتحكم',
+    groupId: 'group-workspace',
+    groupTitleKey: 'groupWorkspace',
+    fallbackGroupTitle: 'Workspace',
+    arabicGroupTitle: 'مساحة العمل',
     roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    keywords: ['alerts', 'tasks', 'actions', 'مهام', 'تنبيهات', 'اجراءات']
+    keywords: ['alerts', 'tasks', 'actions', 'approvals', 'مهام', 'تنبيهات', 'اجراءات', 'اعتماد']
+  },
+  {
+    id: 'traceability',
+    nameKey: 'traceability',
+    fallbackName: 'Material Traceability & Lineage',
+    arabicName: 'تتبع حركات وسلسلة الحيازة',
+    icon: GitBranch,
+    groupId: 'group-workspace',
+    groupTitleKey: 'groupWorkspace',
+    fallbackGroupTitle: 'Workspace',
+    arabicGroupTitle: 'مساحة العمل',
+    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
+    keywords: ['lifecycle', 'history', 'chain', 'lineage', 'movements', 'تتبع', 'سلسلة', 'مسار', 'حيازة', 'نشاط']
   },
 
-  // Materials
+  // ==========================================
+  // GROUP 2: MATERIAL MANAGEMENT (إدارة المواد والمستودعات)
+  // ==========================================
+  {
+    id: 'warehouse-files',
+    nameKey: 'warehouseFiles',
+    fallbackName: 'Warehouse Files Manager',
+    arabicName: 'إدارة ملفات المخازن',
+    icon: FolderKanban,
+    groupId: 'group-materials',
+    groupTitleKey: 'groupMaterials',
+    fallbackGroupTitle: 'Material Management',
+    arabicGroupTitle: 'إدارة المواد والمستودعات',
+    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
+    keywords: ['files', 'excel', 'warehouses', 'stores', 'ملفات', 'مخازن', 'اكسل', 'مجموعات', 'ndgs']
+  },
   {
     id: 'materials',
     nameKey: 'materials',
@@ -96,10 +142,10 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
     icon: Layers,
     groupId: 'group-materials',
     groupTitleKey: 'groupMaterials',
-    fallbackGroupTitle: 'Materials Management',
-    arabicGroupTitle: 'إدارة المواد والمخزون',
+    fallbackGroupTitle: 'Material Management',
+    arabicGroupTitle: 'إدارة المواد والمستودعات',
     roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    keywords: ['inventory', 'parts', 'stock', 'مواد', 'مخزن', 'قطع']
+    keywords: ['inventory', 'parts', 'stock', 'ledger', 'catalog', 'مواد', 'مخزن', 'قطع', 'سجل']
   },
   {
     id: 'add-material',
@@ -109,230 +155,209 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
     icon: PlusCircle,
     groupId: 'group-materials',
     groupTitleKey: 'groupMaterials',
-    fallbackGroupTitle: 'Materials Management',
-    arabicGroupTitle: 'إدارة المواد والمخزون',
+    fallbackGroupTitle: 'Material Management',
+    arabicGroupTitle: 'إدارة المواد والمستودعات',
     roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER],
     keywords: ['new', 'create', 'register', 'اضافة', 'جديد', 'تسجيل']
   },
   {
-    id: 'traceability',
-    nameKey: 'traceability',
-    fallbackName: 'Material Traceability',
-    arabicName: 'تتبع مسار المواد',
-    icon: GitBranch,
+    id: 'excel-import',
+    nameKey: 'excelImport',
+    fallbackName: 'Excel Import & Data Ingestion',
+    arabicName: 'استيراد وترحيل ملفات إكسل',
+    icon: FileSpreadsheet,
     groupId: 'group-materials',
     groupTitleKey: 'groupMaterials',
-    fallbackGroupTitle: 'Materials Management',
-    arabicGroupTitle: 'إدارة المواد والمخزون',
-    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    badge: 'New',
-    keywords: ['lifecycle', 'history', 'chain', 'تتبع', 'سلسلة', 'مسار']
+    fallbackGroupTitle: 'Material Management',
+    arabicGroupTitle: 'إدارة المواد والمستودعات',
+    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE],
+    keywords: ['xlsx', 'csv', 'bulk', 'ingest', 'اكسل', 'استيراد', 'رفع', 'بيانات']
   },
   {
-    id: 'material-intelligence',
-    nameKey: 'materialIntelligence',
-    fallbackName: 'Multilingual Intelligence',
-    arabicName: 'الترجمة والذكاء الفني',
-    icon: Globe,
+    id: 'enterprise',
+    nameKey: 'enterprise',
+    fallbackName: 'Enterprise Operations & Vouchers',
+    arabicName: 'أذونات الصرف والاستلام والتحويل',
+    icon: Building2,
     groupId: 'group-materials',
     groupTitleKey: 'groupMaterials',
-    fallbackGroupTitle: 'Materials Management',
-    arabicGroupTitle: 'إدارة المواد والمخزون',
+    fallbackGroupTitle: 'Material Management',
+    arabicGroupTitle: 'إدارة المواد والمستودعات',
     roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    badge: 'Port 9',
-    keywords: ['arabic', 'translate', 'meaning', 'ترجمة', 'عربي', 'معنى']
-  },
-
-  // Search & AI
-  {
-    id: 'search',
-    nameKey: 'search',
-    fallbackName: 'Global Smart Search',
-    arabicName: 'البحث الذكي الشامل',
-    icon: Search,
-    groupId: 'group-search',
-    groupTitleKey: 'groupSearch',
-    fallbackGroupTitle: 'Search & Intelligence',
-    arabicGroupTitle: 'البحث والاستخبارات',
-    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    keywords: ['find', 'lookup', 'query', 'بحث', 'استعلام', 'تنقيب']
-  },
-  {
-    id: 'ai-copilot',
-    nameKey: 'aiCopilot',
-    fallbackName: 'AI Co-Pilot',
-    arabicName: 'المساعد الهندسي الذكي',
-    icon: Zap,
-    groupId: 'group-search',
-    groupTitleKey: 'groupSearch',
-    fallbackGroupTitle: 'Search & Intelligence',
-    arabicGroupTitle: 'البحث والاستخبارات',
-    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    badge: 'AI',
-    keywords: ['assistant', 'gemini', 'chat', 'ذكاء', 'مساعد', 'جمناي']
-  },
-  {
-    id: 'intelligence',
-    nameKey: 'intelligence',
-    fallbackName: 'Intelligence & Insights',
-    arabicName: 'الاستخبارات والتحليلات',
-    icon: Compass,
-    groupId: 'group-search',
-    groupTitleKey: 'groupSearch',
-    fallbackGroupTitle: 'Search & Intelligence',
-    arabicGroupTitle: 'البحث والاستخبارات',
-    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    keywords: ['analytics', 'market', 'pricing', 'تحليلات', 'اسعار', 'سوق']
+    keywords: ['warehouse', 'issuance', 'receiving', 'transfer', 'استلام', 'صرف', 'تحويل', 'مستودع']
   },
   {
     id: 'external-stock',
     nameKey: 'externalStock',
-    fallbackName: 'External Stores Manager',
-    arabicName: 'إدارة المخازن الخارجية',
+    fallbackName: 'External Stores & Partners',
+    arabicName: 'المخازن الخارجية والشركاء',
     icon: Warehouse,
-    groupId: 'group-search',
-    groupTitleKey: 'groupSearch',
-    fallbackGroupTitle: 'Search & Intelligence',
-    arabicGroupTitle: 'البحث والاستخبارات',
+    groupId: 'group-materials',
+    groupTitleKey: 'groupMaterials',
+    fallbackGroupTitle: 'Material Management',
+    arabicGroupTitle: 'إدارة المواد والمستودعات',
     roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
     keywords: ['external', 'third-party', 'store', 'خارجي', 'مستودعات', 'شريك']
-  },
-
-  // Operations & Engineering
-  {
-    id: 'enterprise',
-    nameKey: 'enterprise',
-    fallbackName: 'Enterprise Operations',
-    arabicName: 'العمليات المؤسسية والمخزنية',
-    icon: Building2,
-    groupId: 'group-ops',
-    groupTitleKey: 'groupOps',
-    fallbackGroupTitle: 'Operations & Engineering',
-    arabicGroupTitle: 'العمليات والهندسة',
-    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    keywords: ['warehouse', 'issuance', 'receiving', 'استلام', 'صرف', 'تحويل']
-  },
-  {
-    id: 'mrf-management',
-    nameKey: 'mrfManagement',
-    fallbackName: 'MR, PO, WO & Inspection',
-    arabicName: 'طلبات الشراء وفحص المواد',
-    icon: FileText,
-    groupId: 'group-ops',
-    groupTitleKey: 'groupOps',
-    fallbackGroupTitle: 'Operations & Engineering',
-    arabicGroupTitle: 'العمليات والهندسة',
-    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    badge: 'QA',
-    keywords: ['mrf', 'purchase', 'work order', 'شراء', 'فحص', 'اوامر']
-  },
-  {
-    id: 'verification',
-    nameKey: 'verification',
-    fallbackName: 'Engineering Verification',
-    arabicName: 'المطابقة والتحقق الهندسي',
-    icon: ShieldCheck,
-    groupId: 'group-ops',
-    groupTitleKey: 'groupOps',
-    fallbackGroupTitle: 'Operations & Engineering',
-    arabicGroupTitle: 'العمليات والهندسة',
-    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    keywords: ['qa', 'qc', 'specs', 'مطابقة', 'تحقق', 'هندسي']
-  },
-  {
-    id: 'equipment',
-    nameKey: 'equipment',
-    fallbackName: 'Equipment Register',
-    arabicName: 'سجل المعدات والآلات',
-    icon: Warehouse,
-    groupId: 'group-ops',
-    groupTitleKey: 'groupOps',
-    fallbackGroupTitle: 'Operations & Engineering',
-    arabicGroupTitle: 'العمليات والهندسة',
-    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    keywords: ['tag', 'machinery', 'plant', 'معدات', 'موقع', 'تاج']
-  },
-  {
-    id: 'decisions',
-    nameKey: 'decisions',
-    fallbackName: 'Engineering Decisions',
-    arabicName: 'القرارات الهندسية والموافقات',
-    icon: FileCheck2,
-    groupId: 'group-ops',
-    groupTitleKey: 'groupOps',
-    fallbackGroupTitle: 'Operations & Engineering',
-    arabicGroupTitle: 'العمليات والهندسة',
-    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    keywords: ['approval', 'review', 'sign-off', 'موافقة', 'قرار', 'اعتماد']
-  },
-  {
-    id: 'blacklist',
-    nameKey: 'blacklist',
-    fallbackName: 'Blacklist & Quarantine',
-    arabicName: 'الحجر الفني والقائمة المحظورة',
-    icon: ShieldAlert,
-    groupId: 'group-ops',
-    groupTitleKey: 'groupOps',
-    fallbackGroupTitle: 'Operations & Engineering',
-    arabicGroupTitle: 'العمليات والهندسة',
-    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    keywords: ['quarantine', 'rejected', 'banned', 'حجر', 'مرفوض', 'حظر']
-  },
-  {
-    id: 'barcode-studio',
-    nameKey: 'barcodeStudio',
-    fallbackName: 'Barcode & Shelf Label Studio',
-    arabicName: 'استوديو طباعة ملصقات الباركود والرفوف',
-    icon: Barcode,
-    groupId: 'group-ops',
-    groupTitleKey: 'groupOps',
-    fallbackGroupTitle: 'Operations & Engineering',
-    arabicGroupTitle: 'العمليات والهندسة',
-    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    badge: 'DPI',
-    keywords: ['barcode', 'qr', 'label', 'shelf', 'thermal', 'طباعة', 'باركود', 'ملصقات', 'رف']
-  },
-  {
-    id: 'cycle-count',
-    nameKey: 'cycleCount',
-    fallbackName: 'Cycle Counting & Physical Inventory',
-    arabicName: 'الجرد الدوري والتدقيق الميداني',
-    icon: ClipboardCheck,
-    groupId: 'group-ops',
-    groupTitleKey: 'groupOps',
-    fallbackGroupTitle: 'Operations & Engineering',
-    arabicGroupTitle: 'العمليات والهندسة',
-    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    badge: 'Audit',
-    keywords: ['audit', 'count', 'cycle', 'reconciliation', 'variance', 'جرد', 'تدقيق', 'تسوية', 'مطابقة']
   },
   {
     id: 'reorder-hub',
     nameKey: 'reorderHub',
-    fallbackName: 'Automated Reorder & Requisitions',
-    arabicName: 'مركز أتمتة إعادة الطلب والمشتريات',
+    fallbackName: 'Reorder Automation & Requisitions',
+    arabicName: 'حساب النواقص وإعادة الطلب',
     icon: ShoppingCart,
-    groupId: 'group-ops',
-    groupTitleKey: 'groupOps',
-    fallbackGroupTitle: 'Operations & Engineering',
-    arabicGroupTitle: 'العمليات والهندسة',
+    groupId: 'group-materials',
+    groupTitleKey: 'groupMaterials',
+    fallbackGroupTitle: 'Material Management',
+    arabicGroupTitle: 'إدارة المواد والمستودعات',
     roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    badge: 'PR',
     keywords: ['reorder', 'pr', 'purchase', 'deficit', 'eoq', 'اعادة طلب', 'شراء', 'نواقص']
   },
   {
     id: 'shelf-life',
     nameKey: 'shelfLife',
     fallbackName: 'Shelf-Life & Dead Stock',
-    arabicName: 'إدارة الصلاحية والمخزون الراكد',
+    arabicName: 'الصلاحية والمخزون الراكد',
     icon: Hourglass,
-    groupId: 'group-ops',
-    groupTitleKey: 'groupOps',
-    fallbackGroupTitle: 'Operations & Engineering',
-    arabicGroupTitle: 'العمليات والهندسة',
+    groupId: 'group-materials',
+    groupTitleKey: 'groupMaterials',
+    fallbackGroupTitle: 'Material Management',
+    arabicGroupTitle: 'إدارة المواد والمستودعات',
     roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    badge: 'Aging',
-    keywords: ['aging', 'dead stock', 'shelf life', 'expiry', 'o-ring', 'راكد', 'صلاحية', 'انتهاء', 'عمر المخزون']
+    keywords: ['aging', 'dead stock', 'shelf life', 'expiry', 'راكد', 'صلاحية', 'انتهاء', 'عمر المخزون']
+  },
+  {
+    id: 'barcode-studio',
+    nameKey: 'barcodeStudio',
+    fallbackName: 'Barcode & Tag Label Studio',
+    arabicName: 'استوديو ملصقات الباركود والرفوف',
+    icon: Barcode,
+    groupId: 'group-materials',
+    groupTitleKey: 'groupMaterials',
+    fallbackGroupTitle: 'Material Management',
+    arabicGroupTitle: 'إدارة المواد والمستودعات',
+    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
+    keywords: ['barcode', 'qr', 'label', 'shelf', 'طباعة', 'باركود', 'ملصقات', 'رف']
+  },
+  {
+    id: 'cycle-count',
+    nameKey: 'cycleCount',
+    fallbackName: 'Cycle Count & Physical Audit',
+    arabicName: 'الجرد الدوري والمطابقة الميدانية',
+    icon: ClipboardCheck,
+    groupId: 'group-materials',
+    groupTitleKey: 'groupMaterials',
+    fallbackGroupTitle: 'Material Management',
+    arabicGroupTitle: 'إدارة المواد والمستودعات',
+    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
+    keywords: ['audit', 'count', 'cycle', 'reconciliation', 'جرد', 'تدقيق', 'تسوية', 'مطابقة']
+  },
+
+  // ==========================================
+  // GROUP 3: ENGINEERING & INSPECTION (الهندسة والفحص الفني)
+  // ==========================================
+  {
+    id: 'equipment',
+    nameKey: 'equipment',
+    fallbackName: 'Equipment & Loops Register',
+    arabicName: 'سجل المعدات والحلقات الهندسية',
+    icon: Warehouse,
+    groupId: 'group-engineering',
+    groupTitleKey: 'groupEngineering',
+    fallbackGroupTitle: 'Engineering & Inspection',
+    arabicGroupTitle: 'الهندسة والفحص الفني',
+    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
+    keywords: ['tag', 'machinery', 'plant', 'station', 'loops', 'معدات', 'موقع', 'تاج', 'محطة']
+  },
+  {
+    id: 'decisions',
+    nameKey: 'decisions',
+    fallbackName: 'Engineering Decisions & Approvals',
+    arabicName: 'القرارات الهندسية والاعتمادات',
+    icon: FileCheck2,
+    groupId: 'group-engineering',
+    groupTitleKey: 'groupEngineering',
+    fallbackGroupTitle: 'Engineering & Inspection',
+    arabicGroupTitle: 'الهندسة والفحص الفني',
+    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
+    keywords: ['approval', 'review', 'sign-off', 'موافقة', 'قرار', 'اعتماد', 'هندسي']
+  },
+  {
+    id: 'material-intelligence',
+    nameKey: 'materialIntelligence',
+    fallbackName: 'Multilingual Technical Specs & AI Match',
+    arabicName: 'الترجمة الهندسية ومطابقة المواصفات',
+    icon: Globe,
+    groupId: 'group-engineering',
+    groupTitleKey: 'groupEngineering',
+    fallbackGroupTitle: 'Engineering & Inspection',
+    arabicGroupTitle: 'الهندسة والفحص الفني',
+    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
+    keywords: ['arabic', 'translate', 'meaning', 'specs', 'ترجمة', 'عربي', 'معنى', 'مواصفات']
+  },
+  {
+    id: 'ai-copilot',
+    nameKey: 'aiCopilot',
+    fallbackName: 'AI Engineering Assistant',
+    arabicName: 'المساعد الهندسي الذكي',
+    icon: Zap,
+    groupId: 'group-engineering',
+    groupTitleKey: 'groupEngineering',
+    fallbackGroupTitle: 'Engineering & Inspection',
+    arabicGroupTitle: 'الهندسة والفحص الفني',
+    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
+    keywords: ['assistant', 'gemini', 'chat', 'diagnostics', 'ذكاء', 'مساعد', 'جمناي', 'تشخيص']
+  },
+  {
+    id: 'verification',
+    nameKey: 'verification',
+    fallbackName: 'Engineering Standards Verification',
+    arabicName: 'التحقق الفني ومطابقة المعايير',
+    icon: ShieldCheck,
+    groupId: 'group-engineering',
+    groupTitleKey: 'groupEngineering',
+    fallbackGroupTitle: 'Engineering & Inspection',
+    arabicGroupTitle: 'الهندسة والفحص الفني',
+    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
+    keywords: ['qa', 'qc', 'specs', 'standards', 'مطابقة', 'تحقق', 'هندسي', 'معايير']
+  },
+  {
+    id: 'mrf-management',
+    nameKey: 'mrfManagement',
+    fallbackName: 'MR, PO, WO & QC Inspection',
+    arabicName: 'أوامر العمل وفحص الاستلام MTR',
+    icon: FileText,
+    groupId: 'group-engineering',
+    groupTitleKey: 'groupEngineering',
+    fallbackGroupTitle: 'Engineering & Inspection',
+    arabicGroupTitle: 'الهندسة والفحص الفني',
+    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
+    keywords: ['mrf', 'purchase', 'work order', 'inspection', 'شراء', 'فحص', 'اوامر', 'استلام']
+  },
+  {
+    id: 'blacklist',
+    nameKey: 'blacklist',
+    fallbackName: 'Quarantine & Rejected Materials',
+    arabicName: 'الحجر الفني والمواد المحظورة',
+    icon: ShieldAlert,
+    groupId: 'group-engineering',
+    groupTitleKey: 'groupEngineering',
+    fallbackGroupTitle: 'Engineering & Inspection',
+    arabicGroupTitle: 'الهندسة والفحص الفني',
+    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
+    keywords: ['quarantine', 'rejected', 'banned', 'counterfeit', 'حجر', 'مرفوض', 'حظر', 'مقلد']
+  },
+  {
+    id: 'documents',
+    nameKey: 'documents',
+    fallbackName: 'Technical Documents & Test Certificates',
+    arabicName: 'أرشيف الوثائق وشهادات الفحص',
+    icon: FileText,
+    groupId: 'group-engineering',
+    groupTitleKey: 'groupEngineering',
+    fallbackGroupTitle: 'Engineering & Inspection',
+    arabicGroupTitle: 'الهندسة والفحص الفني',
+    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
+    keywords: ['pdf', 'datasheet', 'coc', 'mtr', 'files', 'ملفات', 'وثائق', 'شهادات', 'فحص']
   },
   {
     id: 'preventive-maintenance',
@@ -340,167 +365,146 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
     fallbackName: 'Preventive Maintenance & PM Kits',
     arabicName: 'الصيانة الوقائية وحزم قطع الغيار',
     icon: Wrench,
-    groupId: 'group-ops',
-    groupTitleKey: 'groupOps',
-    fallbackGroupTitle: 'Operations & Engineering',
-    arabicGroupTitle: 'العمليات والهندسة',
+    groupId: 'group-engineering',
+    groupTitleKey: 'groupEngineering',
+    fallbackGroupTitle: 'Engineering & Inspection',
+    arabicGroupTitle: 'الهندسة والفحص الفني',
     roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    badge: 'PM',
     keywords: ['pm', 'maintenance', 'spare parts', 'schedule', 'kit', 'صيانة', 'وقائية', 'جدول', 'قطع غيار']
+  },
+  {
+    id: 'data-quality',
+    nameKey: 'dataQuality',
+    fallbackName: 'Data Integrity & Quality Center',
+    arabicName: 'مركز سلامة وجودة البيانات',
+    icon: Shield,
+    groupId: 'group-engineering',
+    groupTitleKey: 'groupEngineering',
+    fallbackGroupTitle: 'Engineering & Inspection',
+    arabicGroupTitle: 'الهندسة والفحص الفني',
+    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
+    keywords: ['integrity', 'audit', 'validation', 'تدقيق', 'جودة', 'سلامة']
+  },
+  {
+    id: 'intelligence',
+    nameKey: 'intelligence',
+    fallbackName: 'Market Intelligence & Forecasting',
+    arabicName: 'استخبارات السوق والأسعار التنبؤية',
+    icon: Compass,
+    groupId: 'group-engineering',
+    groupTitleKey: 'groupEngineering',
+    fallbackGroupTitle: 'Engineering & Inspection',
+    arabicGroupTitle: 'الهندسة والفحص الفني',
+    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
+    keywords: ['analytics', 'market', 'pricing', 'trends', 'تحليلات', 'اسعار', 'سوق', 'تنبؤ']
+  },
+
+  // ==========================================
+  // GROUP 4: REPORTS & SYSTEM (التقارير وإدارة المنظومة)
+  // ==========================================
+  {
+    id: 'reports',
+    nameKey: 'reports',
+    fallbackName: 'Executive Reports & Analytics',
+    arabicName: 'التقارير التحليلية والإحصاءات',
+    icon: BarChart3,
+    groupId: 'group-system',
+    groupTitleKey: 'groupSystem',
+    fallbackGroupTitle: 'Reports & System',
+    arabicGroupTitle: 'التقارير وإدارة المنظومة',
+    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
+    keywords: ['charts', 'metrics', 'kpi', 'analytics', 'تقارير', 'مؤشرات', 'بيانات']
   },
   {
     id: 'workflow-approvals',
     nameKey: 'workflowApprovals',
     fallbackName: 'Workflow Approvals & Sign-off',
-    arabicName: 'دورة الموافقات والاعتماد الرقمي',
+    arabicName: 'سير الاعتمادات والتوقيعات الإلكترونية',
     icon: FileCheck2,
-    groupId: 'group-ops',
-    groupTitleKey: 'groupOps',
-    fallbackGroupTitle: 'Operations & Engineering',
-    arabicGroupTitle: 'العمليات والهندسة',
+    groupId: 'group-system',
+    groupTitleKey: 'groupSystem',
+    fallbackGroupTitle: 'Reports & System',
+    arabicGroupTitle: 'التقارير وإدارة المنظومة',
     roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    badge: 'Sign',
     keywords: ['approval', 'workflow', 'sign', 'electronic', 'موافقات', 'اعتماد', 'توقيع', 'دورة']
-  },
-
-  // Documents
-  {
-    id: 'documents',
-    nameKey: 'documents',
-    fallbackName: 'Document Center',
-    arabicName: 'مركز الوثائق والمستندات',
-    icon: FileText,
-    groupId: 'group-docs',
-    groupTitleKey: 'groupDocs',
-    fallbackGroupTitle: 'Documents & Import',
-    arabicGroupTitle: 'الوثائق والاستيراد',
-    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    keywords: ['pdf', 'datasheet', 'files', 'ملفات', 'وثائق', 'شهادات']
-  },
-  {
-    id: 'excel-import',
-    nameKey: 'excelImport',
-    fallbackName: 'Excel Import Center',
-    arabicName: 'مركز استيراد ملفات إكسل',
-    icon: FileSpreadsheet,
-    groupId: 'group-docs',
-    groupTitleKey: 'groupDocs',
-    fallbackGroupTitle: 'Documents & Import',
-    arabicGroupTitle: 'الوثائق والاستيراد',
-    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE],
-    badge: 'Smart',
-    keywords: ['xlsx', 'csv', 'bulk', 'اكسل', 'استيراد', 'رفع']
-  },
-  {
-    id: 'google-drive',
-    nameKey: 'googleDrive',
-    fallbackName: 'Google Drive Vault',
-    arabicName: 'خزينة جوجل درايف السحابية',
-    icon: Cloud,
-    groupId: 'group-docs',
-    groupTitleKey: 'groupDocs',
-    fallbackGroupTitle: 'Documents & Import',
-    arabicGroupTitle: 'الوثائق والاستيراد',
-    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    keywords: ['cloud', 'storage', 'drive', 'سحابي', 'درايف', 'تخزين']
-  },
-
-  // Reports
-  {
-    id: 'reports',
-    nameKey: 'reports',
-    fallbackName: 'Reports & Analytics',
-    arabicName: 'التقارير والإحصاءات',
-    icon: BarChart3,
-    groupId: 'group-reports',
-    groupTitleKey: 'groupReports',
-    fallbackGroupTitle: 'Reports & Quality',
-    arabicGroupTitle: 'التقارير والجودة',
-    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    keywords: ['charts', 'metrics', 'kpi', 'تقارير', 'مؤشرات', 'بيانات']
-  },
-  {
-    id: 'data-quality',
-    nameKey: 'dataQuality',
-    fallbackName: 'Data Quality Center',
-    arabicName: 'مركز جودة وتدقيق البيانات',
-    icon: Shield,
-    groupId: 'group-reports',
-    groupTitleKey: 'groupReports',
-    fallbackGroupTitle: 'Reports & Quality',
-    arabicGroupTitle: 'التقارير والجودة',
-    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    badge: 'Port 14',
-    keywords: ['integrity', 'audit', 'validation', 'تدقيق', 'جودة', 'سلامة']
-  },
-
-  // Admin
-  {
-    id: 'admin-governance',
-    nameKey: 'adminGovernance',
-    fallbackName: 'Admin Control & Sites',
-    arabicName: 'إدارة المواقع والصلاحيات',
-    icon: ShieldCheck,
-    groupId: 'group-admin',
-    groupTitleKey: 'groupAdmin',
-    fallbackGroupTitle: 'Administration & Governance',
-    arabicGroupTitle: 'الإدارة والحوكمة',
-    roles: [UserRole.ADMIN],
-    badge: 'Admin',
-    keywords: ['users', 'roles', 'sites', 'مشرف', 'مستخدمين', 'مواقع']
-  },
-  {
-    id: 'recycle-bin',
-    nameKey: 'recycleBin',
-    fallbackName: 'Recycle Bin & Data Safety',
-    arabicName: 'سلة المحذوفات وأمان البيانات',
-    icon: Trash2,
-    groupId: 'group-admin',
-    groupTitleKey: 'groupAdmin',
-    fallbackGroupTitle: 'Administration & Governance',
-    arabicGroupTitle: 'الإدارة والحوكمة',
-    roles: [UserRole.ADMIN, UserRole.SUPERVISOR],
-    badge: 'Restore',
-    keywords: ['trash', 'deleted', 'restore', 'سلة', 'محذوفات', 'استرجاع']
   },
   {
     id: 'backup-sync',
     nameKey: 'backupSync',
-    fallbackName: 'Backup & Cloud Sync',
-    arabicName: 'النسخ الاحتياطي والمزامنة',
+    fallbackName: 'Backup & Cloud Sync Hub',
+    arabicName: 'النسخ الاحتياطي والمزامنة السحابية',
     icon: Database,
-    groupId: 'group-admin',
-    groupTitleKey: 'groupAdmin',
-    fallbackGroupTitle: 'Administration & Governance',
-    arabicGroupTitle: 'الإدارة والحوكمة',
+    groupId: 'group-system',
+    groupTitleKey: 'groupSystem',
+    fallbackGroupTitle: 'Reports & System',
+    arabicGroupTitle: 'التقارير وإدارة المنظومة',
     roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER],
-    keywords: ['export', 'offline', 'firestore', 'نسخ', 'مزامنة', 'سحابي']
+    keywords: ['export', 'offline', 'firestore', 'cloud', 'نسخ', 'مزامنة', 'سحابي', 'قاعدة']
+  },
+  {
+    id: 'admin-governance',
+    nameKey: 'adminGovernance',
+    fallbackName: 'User Management, Sites & Access',
+    arabicName: 'إدارة المستخدمين والمواقع والصلاحيات',
+    icon: ShieldCheck,
+    groupId: 'group-system',
+    groupTitleKey: 'groupSystem',
+    fallbackGroupTitle: 'Reports & System',
+    arabicGroupTitle: 'التقارير وإدارة المنظومة',
+    roles: [UserRole.ADMIN],
+    keywords: ['users', 'roles', 'sites', 'warehouses', 'مشرف', 'مستخدمين', 'مواقع', 'صلاحيات']
+  },
+  {
+    id: 'recycle-bin',
+    nameKey: 'recycleBin',
+    fallbackName: 'Recycle Bin & Data Vault',
+    arabicName: 'سلة المحذوفات واسترجاع البيانات',
+    icon: Trash2,
+    groupId: 'group-system',
+    groupTitleKey: 'groupSystem',
+    fallbackGroupTitle: 'Reports & System',
+    arabicGroupTitle: 'التقارير وإدارة المنظومة',
+    roles: [UserRole.ADMIN, UserRole.SUPERVISOR],
+    keywords: ['trash', 'deleted', 'restore', 'سلة', 'محذوفات', 'استرجاع', 'أمان']
   },
   {
     id: 'governance',
     nameKey: 'governance',
-    fallbackName: 'Governance & SOPs',
-    arabicName: 'الحوكمة وإجراءات التشغيل',
+    fallbackName: 'Governance & SOP Operations',
+    arabicName: 'الحوكمة وإجراءات التشغيل القياسية',
     icon: ShieldCheck,
-    groupId: 'group-admin',
-    groupTitleKey: 'groupAdmin',
-    fallbackGroupTitle: 'Administration & Governance',
-    arabicGroupTitle: 'الإدارة والحوكمة',
+    groupId: 'group-system',
+    groupTitleKey: 'groupSystem',
+    fallbackGroupTitle: 'Reports & System',
+    arabicGroupTitle: 'التقارير وإدارة المنظومة',
     roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    keywords: ['policy', 'sop', 'rules', 'سياسات', 'حوكمة', 'اجراءات']
+    keywords: ['policy', 'sop', 'rules', 'سياسات', 'حوكمة', 'اجراءات', 'معايير']
+  },
+  {
+    id: 'google-drive',
+    nameKey: 'googleDrive',
+    fallbackName: 'Google Drive Cloud Storage',
+    arabicName: 'خزينة جوجل درايف السحابية',
+    icon: Cloud,
+    groupId: 'group-system',
+    groupTitleKey: 'groupSystem',
+    fallbackGroupTitle: 'Reports & System',
+    arabicGroupTitle: 'التقارير وإدارة المنظومة',
+    roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
+    keywords: ['cloud', 'storage', 'drive', 'سحابي', 'درايف', 'تخزين']
   },
   {
     id: 'ai-diagnostics',
     nameKey: 'aiDiagnostics',
-    fallbackName: 'Diagnostics & Settings',
-    arabicName: 'تشخيص النظام والإعدادات',
+    fallbackName: 'System Health & Diagnostics',
+    arabicName: 'تشخيص النظام والخدمات السحابية',
     icon: Activity,
-    groupId: 'group-admin',
-    groupTitleKey: 'groupAdmin',
-    fallbackGroupTitle: 'Administration & Governance',
-    arabicGroupTitle: 'الإدارة والحوكمة',
+    groupId: 'group-system',
+    groupTitleKey: 'groupSystem',
+    fallbackGroupTitle: 'Reports & System',
+    arabicGroupTitle: 'التقارير وإدارة المنظومة',
     roles: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.ENGINEER, UserRole.WAREHOUSE, UserRole.READONLY, UserRole.VIEWER],
-    keywords: ['status', 'api', 'health', 'تشخيص', 'فحص', 'اعدادات']
+    keywords: ['status', 'api', 'health', 'diagnostics', 'تشخيص', 'فحص', 'اعدادات', 'صحة']
   }
 ];
 
@@ -508,7 +512,7 @@ interface QuickNavigationModalProps {
   isOpen: boolean;
   onClose: () => void;
   activeTab: string;
-  onNavigateTab: (tabId: string) => void;
+  onNavigateTab: (tabId: string, query?: string) => void;
   userRole: UserRole;
   recentTabs?: string[];
 }
@@ -528,13 +532,44 @@ export default function QuickNavigationModal({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
+  // Favorites state persisted in localStorage
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('emis_quick_nav_favorites');
+      return saved ? JSON.parse(saved) : ['dashboard', 'materials', 'search', 'warehouse-files'];
+    } catch {
+      return ['dashboard', 'materials', 'search', 'warehouse-files'];
+    }
+  });
+
+  const toggleFavorite = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setFavorites(prev => {
+      const next = prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id];
+      try {
+        localStorage.setItem('emis_quick_nav_favorites', JSON.stringify(next));
+      } catch (err) {
+        console.error('Failed to save favorites', err);
+      }
+      return next;
+    });
+  };
+
   // Available items for this user role
   const allowedItems = ALL_NAV_ITEMS.filter(item => item.roles.includes(userRole));
+
+  // Warehouse files for direct file jumping
+  const [warehouseFiles, setWarehouseFiles] = useState<WarehouseFile[]>(() => dbService.getWarehouseFiles());
+  useEffect(() => {
+    setWarehouseFiles(dbService.getWarehouseFiles());
+  }, [isOpen]);
 
   // Filter items by category & search query
   const filteredItems = allowedItems.filter(item => {
     // Category match
-    if (activeCategory !== 'all' && item.groupId !== activeCategory) {
+    if (activeCategory === 'favorites') {
+      if (!favorites.includes(item.id)) return false;
+    } else if (activeCategory !== 'all' && item.groupId !== activeCategory) {
       return false;
     }
 
@@ -555,18 +590,34 @@ export default function QuickNavigationModal({
       keywordsMatch ||
       item.id.toLowerCase().includes(q)
     );
+  }).sort((a, b) => {
+    // In 'all' or when no search query, put favorites at the top
+    if (!query.trim() && activeCategory === 'all') {
+      const aFav = favorites.includes(a.id) ? 1 : 0;
+      const bFav = favorites.includes(b.id) ? 1 : 0;
+      if (aFav !== bFav) return bFav - aFav;
+    }
+    return 0;
   });
 
-  // Unique categories for pills
+  // Matching warehouse files when query is entered
+  const matchingFiles = query.trim() ? warehouseFiles.filter(f => {
+    const q = query.toLowerCase().trim();
+    return (
+      f.name.toLowerCase().includes(q) ||
+      (f.warehouseName && f.warehouseName.toLowerCase().includes(q)) ||
+      (f.warehouseCode && f.warehouseCode.toLowerCase().includes(q))
+    );
+  }) : [];
+
+  // Core Categories
   const categories = [
     { id: 'all', label: language === 'ar' ? 'الكل' : 'All' },
-    { id: 'group-dashboard', label: language === 'ar' ? 'الرئيسية' : 'Core' },
-    { id: 'group-materials', label: language === 'ar' ? 'المواد' : 'Materials' },
-    { id: 'group-search', label: language === 'ar' ? 'الذكاء والبحث' : 'Search & AI' },
-    { id: 'group-ops', label: language === 'ar' ? 'العمليات' : 'Operations' },
-    { id: 'group-docs', label: language === 'ar' ? 'الوثائق' : 'Documents' },
-    { id: 'group-reports', label: language === 'ar' ? 'التقارير' : 'Reports' },
-    { id: 'group-admin', label: language === 'ar' ? 'الإدارة' : 'Admin' },
+    { id: 'favorites', label: language === 'ar' ? `المفضلة (${favorites.length})` : `Favorites (${favorites.length})` },
+    { id: 'group-workspace', label: language === 'ar' ? 'مساحة العمل' : 'Workspace' },
+    { id: 'group-materials', label: language === 'ar' ? 'إدارة المواد' : 'Materials' },
+    { id: 'group-engineering', label: language === 'ar' ? 'الهندسة والفحص' : 'Engineering' },
+    { id: 'group-system', label: language === 'ar' ? 'التقارير والنظام' : 'System' },
   ];
 
   // Auto-focus input when opened
@@ -690,11 +741,52 @@ export default function QuickNavigationModal({
             ref={listRef}
             className="flex-1 overflow-y-auto p-2 space-y-1 divide-y divide-industrial-100/60 dark:divide-industrial-800/60"
           >
-            {filteredItems.length === 0 ? (
+            {/* Matching Warehouse Files (if searching) */}
+            {matchingFiles.length > 0 && (
+              <div className="pb-2 mb-2 space-y-1 border-b border-indigo-100 dark:border-indigo-900/40">
+                <div className="px-2 py-1 text-[11px] font-bold text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
+                  <FolderKanban className="h-3.5 w-3.5" />
+                  <span>{language === 'ar' ? 'ملفات المخازن المطابقة للبحث' : 'Matching Warehouse Files'}</span>
+                </div>
+                {matchingFiles.map(file => (
+                  <button
+                    key={file.id}
+                    type="button"
+                    onClick={() => {
+                      onNavigateTab('materials', file.name);
+                      onClose();
+                    }}
+                    className="w-full flex items-center justify-between p-2.5 rounded-xl bg-indigo-50/50 hover:bg-indigo-100/70 dark:bg-indigo-950/30 dark:hover:bg-indigo-900/50 transition-colors text-left cursor-pointer border border-indigo-200/50 dark:border-indigo-800/40"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="p-1.5 rounded-lg bg-indigo-600 text-white shrink-0">
+                        <FolderKanban className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-indigo-950 dark:text-indigo-100 truncate">
+                            {file.name}
+                          </span>
+                          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-indigo-200 dark:bg-indigo-800 text-indigo-800 dark:text-indigo-200 font-bold">
+                            {file.materialCount || 0} مواد
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-indigo-600 dark:text-indigo-400 truncate">
+                          {file.warehouseName || file.warehouseCode} · انقر لفتح مواد هذا الملف مباشرة
+                        </div>
+                      </div>
+                    </div>
+                    <CornerDownLeft className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {filteredItems.length === 0 && matchingFiles.length === 0 ? (
               <div className="py-12 text-center text-industrial-400">
                 <Sparkles className="h-8 w-8 mx-auto mb-2 text-industrial-300 opacity-60" />
                 <p className="text-sm font-medium">
-                  {language === 'ar' ? 'لم يتم العثور على قوائم مطابقة لبحثك' : 'No matching screens found'}
+                  {language === 'ar' ? 'لم يتم العثور على قوائم أو ملفات مطابقة لبحثك' : 'No matching screens or warehouse files found'}
                 </p>
                 <p className="text-xs text-industrial-400 mt-1">
                   {language === 'ar' ? 'جرب البحث بكلمات أخرى أو اختر "الكل"' : 'Try searching by a different term or select "All"'}
@@ -705,6 +797,7 @@ export default function QuickNavigationModal({
                 const Icon = item.icon;
                 const isSelected = idx === selectedIndex;
                 const isCurrentlyActive = activeTab === item.id;
+                const isFav = favorites.includes(item.id);
                 const nameDisplay = language === 'ar' ? item.arabicName : (t(item.nameKey as any) || item.fallbackName);
                 const subName = language === 'ar' ? item.fallbackName : item.arabicName;
                 const groupDisplay = language === 'ar' ? item.arabicGroupTitle : (t(item.groupTitleKey as any) || item.fallbackGroupTitle);
@@ -759,11 +852,26 @@ export default function QuickNavigationModal({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <span className="text-xs text-brand-600 dark:text-brand-400 font-medium hidden sm:inline">
-                        {language === 'ar' ? 'انتقال' : 'Open'}
-                      </span>
-                      <CornerDownLeft className="h-3.5 w-3.5 text-brand-500" />
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => toggleFavorite(e, item.id)}
+                        className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                          isFav
+                            ? 'text-amber-500 hover:text-amber-600 bg-amber-50 dark:bg-amber-950/40'
+                            : 'text-industrial-300 dark:text-industrial-600 hover:text-amber-500 hover:bg-industrial-100 dark:hover:bg-industrial-800'
+                        }`}
+                        title={isFav ? 'إزالة من المفضلة' : 'تثبيت في المفضلة'}
+                      >
+                        <Star className={`h-4 w-4 ${isFav ? 'fill-amber-400 text-amber-500' : ''}`} />
+                      </button>
+
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                        <span className="text-xs text-brand-600 dark:text-brand-400 font-medium hidden sm:inline">
+                          {language === 'ar' ? 'انتقال' : 'Open'}
+                        </span>
+                        <CornerDownLeft className="h-3.5 w-3.5 text-brand-500" />
+                      </div>
                     </div>
                   </button>
                 );

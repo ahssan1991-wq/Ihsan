@@ -11,6 +11,8 @@
 
 import { Html5Qrcode } from 'html5-qrcode';
 import { Material } from '../types';
+import { detectDuplicateMaterial } from './duplicateDetectionService';
+import { dbService } from './dbService';
 import { 
   downscaleImageIfNeeded,
   rotateImage, 
@@ -408,6 +410,8 @@ export function lookupMaterialInCatalog(
   searchTarget: {
     code?: string;
     partNumber?: string;
+    materialCode?: string;
+    tagNumber?: string;
     serialNumber?: string;
     manufacturer?: string;
     model?: string;
@@ -415,76 +419,50 @@ export function lookupMaterialInCatalog(
     qrCode?: string;
     sequence?: number;
   },
-  materialsList: Material[]
+  materialsList?: Material[]
 ): Material | null {
-  if (!materialsList || materialsList.length === 0) return null;
+  const materials = materialsList && materialsList.length > 0 ? materialsList : dbService.getMaterials();
+  if (!materials || materials.length === 0) return null;
 
-  const targetCode = (searchTarget.code || searchTarget.partNumber || searchTarget.barcode || searchTarget.qrCode || '').trim().toUpperCase();
-  const targetSerial = (searchTarget.serialNumber || '').trim().toUpperCase();
-  const targetMfg = (searchTarget.manufacturer || '').trim().toUpperCase();
-  const targetModel = (searchTarget.model || '').trim().toUpperCase();
-  const targetSeq = searchTarget.sequence;
+  // Use the central robust duplicate detection service
+  const dup = detectDuplicateMaterial({
+    partNumber: searchTarget.partNumber || searchTarget.code,
+    materialCode: searchTarget.materialCode,
+    tagNumber: searchTarget.tagNumber,
+    sequence: searchTarget.sequence,
+    barcode: searchTarget.barcode || searchTarget.code,
+    qrCode: searchTarget.qrCode || searchTarget.code,
+    serialNumber: searchTarget.serialNumber,
+    manufacturer: searchTarget.manufacturer,
+    model: searchTarget.model
+  }, materials);
 
-  if (!targetCode && !targetSerial && !targetMfg && !targetModel && !targetSeq) {
-    return null;
+  if (dup.level === 'EXACT' && dup.exactMatch) {
+    return dup.exactMatch;
   }
 
-  // 1. Match by Sequence Number if specified
-  if (targetSeq !== undefined && targetSeq > 0) {
-    const seqMatch = materialsList.find(m => m.sequence === targetSeq);
-    if (seqMatch) return seqMatch;
-  }
-
-  // Check if targetCode is like "#15" or numeric sequence
-  if (targetCode.startsWith('#')) {
-    const num = parseInt(targetCode.slice(1));
+  // Support sequence syntax "#15"
+  const rawCode = (searchTarget.code || searchTarget.partNumber || '').trim().toUpperCase();
+  if (rawCode.startsWith('#')) {
+    const num = parseInt(rawCode.slice(1), 10);
     if (!isNaN(num) && num > 0) {
-      const match = materialsList.find(m => m.sequence === num);
+      const match = materials.find(m => m.sequence === num);
       if (match) return match;
     }
   }
 
-  // 2. Match by exact Part Number
-  if (targetCode) {
-    const partMatch = materialsList.find(m => m.partNumber.trim().toUpperCase() === targetCode);
-    if (partMatch) return partMatch;
-
-    // Support combined part numbers separated by '+' or ',' (e.g. Emerson combined codes)
-    if (targetCode.includes('+') || targetCode.includes(',')) {
-      const subParts = targetCode.split(/[+,]/).map(s => s.trim().toUpperCase()).filter(s => s.length >= 4);
-      for (const sp of subParts) {
-        const subMatch = materialsList.find(m => m.partNumber.trim().toUpperCase() === sp);
-        if (subMatch) return subMatch;
-      }
+  // Support combined part numbers separated by '+' or ','
+  if (rawCode.includes('+') || rawCode.includes(',')) {
+    const subParts = rawCode.split(/[+,]/).map(s => s.trim().toUpperCase()).filter(s => s.length >= 3);
+    for (const sp of subParts) {
+      const subDup = detectDuplicateMaterial({ partNumber: sp }, materials);
+      if (subDup.exactMatch) return subDup.exactMatch;
     }
   }
 
-  // 3. Match by Serial Number (ONLY if targetSerial was explicitly provided)
-  if (targetSerial && targetSerial.length >= 3) {
-    const serialMatch = materialsList.find(m => {
-      const directMatch = m.serialNumber && m.serialNumber.trim().toUpperCase() === targetSerial;
-      const arrayMatch = m.serialNumbers?.some(sn => sn.serialNumber.trim().toUpperCase() === targetSerial);
-      return directMatch || arrayMatch;
-    });
-    if (serialMatch) return serialMatch;
-  }
-
-  // 4. Match by exact Barcode / QR Code
-  if (targetCode && targetCode.length >= 4) {
-    const barcodeMatch = materialsList.find(m => 
-      (m.barcode && m.barcode.trim().toUpperCase() === targetCode) ||
-      (m.qrCode && m.qrCode.trim().toUpperCase() === targetCode)
-    );
-    if (barcodeMatch) return barcodeMatch;
-  }
-
-  // 5. Match by exact Manufacturer + Model
-  if (targetMfg && targetModel && targetMfg.length >= 3 && targetModel.length >= 3) {
-    const mfgModelMatch = materialsList.find(m => 
-      m.manufacturer.trim().toUpperCase() === targetMfg &&
-      m.model.trim().toUpperCase() === targetModel
-    );
-    if (mfgModelMatch) return mfgModelMatch;
+  // If there is a high-confidence possible match (>= 80%)
+  if (dup.level === 'POSSIBLE' && dup.possibleMatches.length > 0 && dup.possibleMatches[0].score >= 80) {
+    return dup.possibleMatches[0].material;
   }
 
   return null;

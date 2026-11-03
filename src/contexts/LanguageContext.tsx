@@ -75,6 +75,10 @@ export interface TranslationDictionary {
   groupDocs: string;
   groupReports: string;
   groupAdmin: string;
+  clusterOps: string;
+  clusterEng: string;
+  clusterQc: string;
+  clusterAdmin: string;
   quickSwitcher: string;
   searchMenus: string;
   recentPages: string;
@@ -293,6 +297,10 @@ const enTranslations: TranslationDictionary = {
   groupDocs: 'Documents & Import',
   groupReports: 'Reports & Quality',
   groupAdmin: 'Administration & Governance',
+  clusterOps: 'Operations & Inventory',
+  clusterEng: 'Engineering & Assets',
+  clusterQc: 'Quality Control & Inspection',
+  clusterAdmin: 'Administration & Governance',
   quickSwitcher: 'Quick Switch (Ctrl+K)',
   searchMenus: 'Filter menus...',
   recentPages: 'Recent',
@@ -511,6 +519,10 @@ const arTranslations: TranslationDictionary = {
   groupDocs: 'الوثائق والاستيراد',
   groupReports: 'التقارير والجودة',
   groupAdmin: 'الإدارة والحوكمة',
+  clusterOps: 'العمليات والمخزون',
+  clusterEng: 'الهندسة والمعدات',
+  clusterQc: 'الجودة والفحص الفني',
+  clusterAdmin: 'الإدارة والحوكمة',
   quickSwitcher: 'التنقل السريع (Ctrl+K)',
   searchMenus: 'ابحث في القوائم...',
   recentPages: 'الأخيرة',
